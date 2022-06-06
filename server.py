@@ -31,7 +31,7 @@ def update_sync(data, worker_weights, mutex, new_weights):
 
 def handle(conn, address, worker_weights, mutex, new_weights):
     print(f"Client {address} connected")
-    msg_len = 15957659 #TODO: generic
+    msg_len = 15957659 #TODO: auto
     arr = bytearray()
     pos = 0      
     max_msg_size = 4096

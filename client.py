@@ -19,7 +19,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     s.sendall(b_weights)
     
-    msg_len = 31914802 #TODO: generic
+    msg_len = 31914802 #TODO: auto
     arr = bytearray()
     pos = 0      
     max_msg_size = 4096
