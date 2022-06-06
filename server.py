@@ -46,12 +46,12 @@ def update_sync(data, worker_weights, mutex, new_weights):
         #Reset
         worker_weights[:]=[]
         #Every thread can send the updated weights to the client
-        mutex.release()
+        for i in range(workers_count - 1):
+            mutex.release()
         return pickle.dumps(new_weights[0])
             
     #Sync/wait for the other worker
     mutex.acquire()
-
     return pickle.dumps(new_weights[0])
 
 def handle(conn, address, worker_weights, mutex, new_weights):
@@ -68,7 +68,7 @@ def handle(conn, address, worker_weights, mutex, new_weights):
 
     byteObj = bytes(arr) #TODO: check if byte string is faster
 
-    print(sys.getsizeof(byteObj), " bytes recieved")
+    print(sys.getsizeof(byteObj), f" bytes recieved from {address}")
 
     data = update_sync(byteObj, worker_weights, mutex, new_weights)
     print(f"sending {sys.getsizeof(data)} bytes to {address}")

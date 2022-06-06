@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -73,8 +74,8 @@ class Flowerclassifier():
       batch_size=self.batch_size)
 
     #find class names
-    class_names = train_ds.class_names
-    print(class_names)
+    self.class_names = train_ds.class_names
+    print(self.class_names)
 
     return (train_ds, val_ds)
 
@@ -89,7 +90,22 @@ class Flowerclassifier():
     return history
 
 
+  def classify_picture(self):
+    img = keras.preprocessing.image.load_img(
+        'Flowers/myroses2.jpeg', target_size=(self.img_height, self.img_width)
+    )
+    img_array = keras.preprocessing.image.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0) # Create a batch
 
+    predictions = self.model.predict(img_array)
+    score = tf.nn.softmax(predictions[0])
+
+    print(predictions)
+    print(score)
+    print(
+        "This image most likely belongs to {} with a {:.2f} percent confidence."
+        .format(self.class_names[np.argmax(score)], 100 * np.max(score))
+    )
 
 
 
@@ -164,24 +180,6 @@ class Flowerclassifier():
 #
 # #print(predictions)
 # #print(score)
-# print(
-#     "This image most likely belongs to {} with a {:.2f} percent confidence."
-#     .format(class_names[np.argmax(score)], 100 * np.max(score))
-# )
-
-#custom image
-
-# img = keras.preprocessing.image.load_img(
-#     'Flowers/myroses2.jpeg', target_size=(img_height, img_width)
-# )
-# img_array = keras.preprocessing.image.img_to_array(img)
-# img_array = tf.expand_dims(img_array, 0) # Create a batch
-
-# predictions = model.predict(img_array)
-# score = tf.nn.softmax(predictions[0])
-
-# print(predictions)
-# print(score)
 # print(
 #     "This image most likely belongs to {} with a {:.2f} percent confidence."
 #     .format(class_names[np.argmax(score)], 100 * np.max(score))

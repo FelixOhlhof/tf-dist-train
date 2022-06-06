@@ -29,6 +29,9 @@ class Client():
             updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
             classifier.model.set_weights(updated_weights)
 
+        print(classifier.model.history.history)
+        classifier.classify_picture()
+
 
     def retrieve_new_weights(self, old_weights):
         print("First weight before merging: ", old_weights[0][0][0][0][0])
@@ -60,7 +63,4 @@ class Client():
 
 if __name__ == "__main__":
     client = Client(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]), client_id=args.id , client_count=(int)(config["CLIENT"]["TOTAL_CLIENTS"]), dataset_name=config["CLIENT"]["DATASET_NAME"])       
-    client.start_dist_training(epochs=1)
-
-
-# TODO: epoche......https://machinelearningmastery.com/polyak-neural-network-model-weight-ensemble/
+    client.start_dist_training(epochs=(int)(config["CLIENT"]["EPOCHES"]))

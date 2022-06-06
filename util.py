@@ -19,8 +19,7 @@ def copy_pictures(directory, worker_index, worker_count):
         image_count = len(list(data_dir.glob('*/*.jpg')))
         print("images found: ", image_count)
 
-    # iterate over files in
-    # that directory
+    # iterate over files in directory
     for class_name in os.listdir(directory):
         f = os.path.join(directory, class_name)
         # checking if it is a file
