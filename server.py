@@ -1,10 +1,33 @@
 import ctypes
 import multiprocessing
-import socket, sys, time, pickle, util
+import socket, sys, time, pickle
+from numpy import average
+from numpy import array
 
 # Number of workers
 workers_count = 2
 
+def get_average_weights(members):
+	# prepare an array of equal weights
+	n_models = len(members)
+	weights = [1/n_models for i in range(1, n_models+1)]
+	new_weights = members[0]
+
+	# determine how many layers need to be averaged
+	n_layers = len(members[0])
+	
+	for layer in range(n_layers):
+		# collect this layer from each model
+		layer_weights = array([model[layer] for model in members])
+		# weighted average of weights for this layer
+		avg_layer_weights = average(layer_weights, axis=0, weights=weights)
+		# store average layer weights
+		new_weights[layer] = avg_layer_weights
+
+		# f = open("sample_org.txt", "wb")
+		# f.write(pickle.dumps(new_weights))
+		# f.close()
+	return new_weights
 
 def update_sync(data, worker_weights, mutex, new_weights): 
     #Next epoch
@@ -17,7 +40,7 @@ def update_sync(data, worker_weights, mutex, new_weights):
     #Every worker send its weights?
     if(len(worker_weights) == workers_count):
         #Mean, Set new_weights
-        new_weights.append(util.get_average_weights(worker_weights))
+        new_weights.append(get_average_weights(worker_weights))
         #Reset
         worker_weights[:]=[]
         #Every thread can send the updated weights to the client
@@ -48,7 +71,7 @@ def handle(conn, address, worker_weights, mutex, new_weights):
     data = update_sync(byteObj, worker_weights, mutex, new_weights)
     print(f"sending data ({sys.getsizeof(data)}) to {address}")
 
-    conn.sendall(data)
+    conn.send(data)
     conn.close()
 
 class Server():
