@@ -1,13 +1,23 @@
 import shutil
 import os
+import tensorflow as tf
+import pathlib
 
 def copy_pictures(directory, worker_index, worker_count):
     classes = []
     copy_path = directory[0:directory.rindex('\\')] + "\{}".format(worker_index)
 
-    #return if data is already split
+    # return if data is already split
     if(os.path.isdir(copy_path)):
         return copy_path
+
+    # download pictures if not existing yet
+    if(not os.path.isdir(directory)):
+        dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
+        data_dir = tf.keras.utils.get_file('flower_photos', origin=dataset_url, untar=True)
+        data_dir = pathlib.Path(data_dir)
+        image_count = len(list(data_dir.glob('*/*.jpg')))
+        print("images found: ", image_count)
 
     # iterate over files in
     # that directory
