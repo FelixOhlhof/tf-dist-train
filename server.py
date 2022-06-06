@@ -7,7 +7,7 @@ from numpy import average
 from numpy import array
 
 # Number of workers
-workers_count = 2
+workers_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
 
 def get_average_weights(members):
 	# prepare an array of equal weights
