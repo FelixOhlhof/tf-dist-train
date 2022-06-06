@@ -1,8 +1,10 @@
 import argparse
 parser = argparse.ArgumentParser(description='Client for tensorflow distributed training')
 parser.add_argument("-i", "--id", help="The id of the client", type=int, required=True)
-parser.add_argument("-c", "--count", help="Total count of clients", type=int, required=True)
 args = parser.parse_args()
+import configparser
+config = configparser.ConfigParser()
+config.read("config.ini")
 import pickle, sys
 import socket, util
 from flowerclassifier import Flowerclassifier
@@ -27,7 +29,6 @@ class Client():
             updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
             classifier.model.set_weights(updated_weights)
 
-        pass
 
     def retrieve_new_weights(self, old_weights):
         print("First weight before merging: ", old_weights[0][0][0][0][0])
@@ -58,7 +59,7 @@ class Client():
 
 
 if __name__ == "__main__":
-    client = Client("127.0.0.1", 65433, client_id=args.id , client_count=args.count, dataset_name="flower_photos")       
+    client = Client(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]), client_id=args.id , client_count=(int)(config["CLIENT"]["TOTAL_CLIENTS"]), dataset_name=config["CLIENT"]["DATASET_NAME"])       
     client.start_dist_training(epochs=1)
 
 

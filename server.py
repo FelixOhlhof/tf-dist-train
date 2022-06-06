@@ -1,6 +1,8 @@
-import ctypes
+import configparser
+config = configparser.ConfigParser()
+config.read('config.ini')
 import multiprocessing
-import socket, sys, time, pickle
+import socket, sys, pickle
 from numpy import average
 from numpy import array
 
@@ -96,7 +98,7 @@ class Server():
             process.start()
 
 if __name__ == "__main__":
-    server = Server("127.0.0.1", 65433)
+    server = Server(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]))
     try:
         print("Server Start")
         server.start()

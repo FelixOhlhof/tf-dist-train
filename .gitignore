@@ -1,2 +1,4 @@
 TF_CONFIG.py
 tfdisttraining.py
+.vscode
+__pycache__
