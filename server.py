@@ -66,10 +66,10 @@ def handle(conn, address, worker_weights, mutex, new_weights):
 
     byteObj = bytes(arr) #TODO: check if byte string is faster
 
-    print(sys.getsizeof(byteObj))
+    print(sys.getsizeof(byteObj), " bytes recieved")
 
     data = update_sync(byteObj, worker_weights, mutex, new_weights)
-    print(f"sending data ({sys.getsizeof(data)}) to {address}")
+    print(f"sending {sys.getsizeof(data)} bytes to {address}")
 
     conn.send(data)
     conn.close()
