@@ -42,22 +42,26 @@ class Client():
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
             s.sendall(b_weights)
-            
-            msg_len = 31914802 #TODO: auto
+            print("weights sent to server")
+            #wait here until server calculated mean???
+            msg_len = 31914812 #31914802 #TODO: auto
             arr = bytearray()
             pos = 0      
             max_msg_size = 4096
+            try:
+                while pos < msg_len: #can you not just do while true and break out when no packets are coming anymore?
+                    packet = s.recv(max_msg_size) #receive data from server
+                    #if not packet: break
+                    pos += max_msg_size
+                    arr.extend(packet)
+                    print("received: ", len(arr), "von: ", msg_len)
+            finally:
+                byteObj = bytes(arr)
+                print(byteObj[-20:])
 
-            while pos < msg_len:
-                packet = s.recv(max_msg_size)
-                pos += max_msg_size
-                arr.extend(packet)
-
-            byteObj = bytes(arr)
-
-            new_weights = pickle.loads(byteObj)
-            print("Recieved new weights! First weight after merging:", new_weights[0][0][0][0][0])
-            return new_weights
+                new_weights = pickle.loads(byteObj)
+                print("Recieved new weights! First weight after merging:", new_weights[0][0][0][0][0])
+                return new_weights
 
 
 

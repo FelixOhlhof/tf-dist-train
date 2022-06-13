@@ -33,25 +33,32 @@ def get_average_weights(members):
 
 def update_sync(data, worker_weights, mutex, new_weights): 
     #Next epoch
-    if(len(worker_weights) == 0 and len(new_weights) != 0):
-        new_weights[:] = []
+    #if(len(worker_weights) == 0 and len(new_weights) != 0):
+    new_weights[:] = [] #why only reset in case and not always?
 
     b = pickle.loads(data)
-    worker_weights.append(b)   
 
+    if (len(worker_weights) < workers_count - 1): #could all clients check if statement at the same time and all go waiting???
+        worker_weights.append(b)
+        print("worker waiting")
+        mutex.acquire()
     #Every worker send its weights?
-    if(len(worker_weights) == workers_count):
+    else:   ##error occurs if weights are appended too fast before mutex.acquire()
+        worker_weights.append(b)
+        print("last workers weights received!")
         #Mean, Set new_weights
         new_weights.append(get_average_weights(worker_weights))
+        print("new weights calculated!")
         #Reset
         worker_weights[:]=[]
         #Every thread can send the updated weights to the client
         for i in range(workers_count - 1):
             mutex.release()
+        print("return data to last worker")
         return pickle.dumps(new_weights[0])
             
     #Sync/wait for the other worker
-    mutex.acquire()
+    print("return data to waiting worker")
     return pickle.dumps(new_weights[0])
 
 def handle(conn, address, worker_weights, mutex, new_weights):
@@ -61,20 +68,22 @@ def handle(conn, address, worker_weights, mutex, new_weights):
     pos = 0      
     max_msg_size = 4096
 
-    while pos < msg_len:
-        packet = conn.recv(max_msg_size)
-        pos += max_msg_size
-        arr.extend(packet)
+    try:
+        while pos < msg_len: #does not work with while True ... but WHY?!?!
+            packet = conn.recv(max_msg_size)
+            #if not packet: break
+            pos += max_msg_size
+            arr.extend(packet)
+    finally:
+        byteObj = bytes(arr) #TODO: check if byte string is faster
+        print(byteObj[-20:])
+        print(sys.getsizeof(byteObj), f" bytes recieved from {address}")
 
-    byteObj = bytes(arr) #TODO: check if byte string is faster
+        data = update_sync(byteObj, worker_weights, mutex, new_weights)
+        print(f"sending {sys.getsizeof(data)} bytes to {address}")
 
-    print(sys.getsizeof(byteObj), f" bytes recieved from {address}")
-
-    data = update_sync(byteObj, worker_weights, mutex, new_weights)
-    print(f"sending {sys.getsizeof(data)} bytes to {address}")
-
-    conn.send(data)
-    conn.close()
+        conn.send(data)
+        conn.close()
 
 class Server():
     def __init__(self, hostname, port):
@@ -89,7 +98,7 @@ class Server():
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.hostname, self.port))
-        self.socket.listen(1)
+        self.socket.listen(3)
         
         while True:
             conn, address = self.socket.accept()
