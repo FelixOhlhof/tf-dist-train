@@ -5,7 +5,7 @@ args = parser.parse_args()
 import configparser
 config = configparser.ConfigParser()
 config.read("config.ini")
-import pickle, sys
+import pickle, sys, os
 import socket, util
 from flowerclassifier import Flowerclassifier
 from http import client

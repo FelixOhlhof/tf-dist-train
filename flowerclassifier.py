@@ -14,6 +14,7 @@ class Flowerclassifier():
     self.num_classes = 5
     self.model = self.generate_model()
     self.train_ds, self.val_ds = self.get_datasets(data_dir)
+    tf.random.set_seed(1234)
     
 
   def generate_model(self):
