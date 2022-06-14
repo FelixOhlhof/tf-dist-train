@@ -1,13 +1,10 @@
-from ast import With
 import configparser
-from time import sleep
 config = configparser.ConfigParser()
 config.read('config.ini')
 import multiprocessing
 import socket, sys, pickle
 from numpy import average
 from numpy import array
-import random
 
 # Number of workers
 workers_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
@@ -34,35 +31,30 @@ def get_average_weights(members):
 		# f.close()
 	return new_weights
 
-def calc_new_weights(worker_weights_queue, new_weights, mutex):
-    while True:
-        sleep(0.1)
-        #Every worker send its weights?
-        if(worker_weights_queue.qsize() == workers_count):
-            #Mean, Set new_weights
-            print("Calculating new weights")
-            l = list()
-            while not worker_weights_queue.empty():
-                l.append(worker_weights_queue.get())
-            new_weights.append(get_average_weights(l))
-            
-
-def update_sync(data, worker_weights_queue, mutex, new_weights): 
+def update_sync(data, worker_weights, mutex, new_weights): 
     #Next epoch
-    # if(len(worker_weights) == 0 and len(new_weights) != 0):
-    #     new_weights[:] = []
+    if(len(worker_weights) == 0 and len(new_weights) != 0):
+        new_weights[:] = []
 
     b = pickle.loads(data)
-    worker_weights_queue.put(b)   
+    worker_weights.append(b)   
 
-    print("Worker waiting") 
-
+    #Every worker send its weights?
+    if(len(worker_weights) == workers_count):
+        #Mean, Set new_weights
+        new_weights.append(get_average_weights(worker_weights))
+        #Reset
+        worker_weights[:]=[]
+        #Every thread can send the updated weights to the client
+        for i in range(workers_count - 1):
+            mutex.release()
+        return pickle.dumps(new_weights[0])
+            
     #Sync/wait for the other worker
-    while(len(new_weights) == 0):
-        sleep(0.05)
+    mutex.acquire()
     return pickle.dumps(new_weights[0])
 
-def handle(conn, address, worker_weights_queue, mutex, new_weights):
+def handle(conn, address, worker_weights, mutex, new_weights):
     print(f"Client {address} connected")
     msg_len = 15957659 #TODO: auto
     arr = bytearray()
@@ -78,7 +70,7 @@ def handle(conn, address, worker_weights_queue, mutex, new_weights):
 
     print(sys.getsizeof(byteObj), f" bytes recieved from {address}")
 
-    data = update_sync(byteObj, worker_weights_queue, mutex, new_weights)
+    data = update_sync(byteObj, worker_weights, mutex, new_weights)
     print(f"sending {sys.getsizeof(data)} bytes to {address}")
 
     conn.send(data)
@@ -88,25 +80,20 @@ class Server():
     def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
-        manager = multiprocessing.Manager()
-        self.worker_weights_queue = multiprocessing.Queue()
-        self.new_weights = manager.list() #TODO: Array
-        self.mutex = multiprocessing.RLock()
-        #self.mutex.acquire()
+        self.manager = multiprocessing.Manager()
+        self.worker_weights = self.manager.list()
+        self.new_weights = self.manager.list() #TODO: Array
+        self.mutex = self.manager.Lock()
+        self.mutex.acquire()
 
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((self.hostname, self.port))
         self.socket.listen(1)
-
-        #start calculating process
-        process = multiprocessing.Process(target=calc_new_weights, args=(self.worker_weights_queue, self.new_weights, self.mutex))
-        process.daemon = True
-        process.start()
         
         while True:
             conn, address = self.socket.accept()
-            process = multiprocessing.Process(target=handle, args=(conn, address, self.worker_weights_queue, self.mutex, self.new_weights))
+            process = multiprocessing.Process(target=handle, args=(conn, address, self.worker_weights, self.mutex, self.new_weights))
             process.daemon = True
             process.start()
 

@@ -1,4 +1,6 @@
 import argparse
+from struct import pack
+from time import sleep
 parser = argparse.ArgumentParser(description='Client for tensorflow distributed training')
 parser.add_argument("-i", "--id", help="The id of the client", type=int, required=True)
 args = parser.parse_args()
@@ -52,6 +54,7 @@ class Client():
                 packet = s.recv(max_msg_size)
                 pos += max_msg_size
                 arr.extend(packet)
+                #print("received: ", len(arr), "von: ", msg_len)
 
             byteObj = bytes(arr)
 
