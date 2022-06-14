@@ -14,12 +14,12 @@ from http import client
 from pathlib import Path
 
 class Client():
-    def __init__(self, hostname, port, client_id, client_count, dataset_name):
+    def __init__(self, hostname, port, client_id, client_count, dataset_name, single_classification_mode):
         self.hostname = hostname # The server's hostname or IP address
         self.port = port # The port used by the server
         self.client_id = client_id # The ID of the worker/client
         self.client_count = client_count # Total worker/client count TODO: clients register -> server starts training (by command) 
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{dataset_name}", self.client_id, self.client_count)
+        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{dataset_name}", self.client_id, self.client_count, single_classification_mode)
 
     def start_dist_training(self, epochs):
         classifier = Flowerclassifier(self.data_dir)
@@ -65,5 +65,5 @@ class Client():
 
 
 if __name__ == "__main__":
-    client = Client(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]), client_id=args.id , client_count=(int)(config["CLIENT"]["TOTAL_CLIENTS"]), dataset_name=config["CLIENT"]["DATASET_NAME"])       
+    client = Client(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]), client_id=args.id , client_count=(int)(config["CLIENT"]["TOTAL_CLIENTS"]), dataset_name=config["CLIENT"]["DATASET_NAME"], single_classification_mode=config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE"))    
     client.start_dist_training(epochs=(int)(config["CLIENT"]["EPOCHES"]))
