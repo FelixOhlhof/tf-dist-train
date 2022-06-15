@@ -64,23 +64,21 @@ def update_sync(data, worker_weights_queue, mutex, new_weights):
 
 def handle(conn, address, worker_weights_queue, mutex, new_weights):
     print(f"Client {address} connected")
-    msg_len = 15957659 #TODO: auto
-    arr = bytearray()
-    pos = 0      
-    max_msg_size = 4096
+    #rec size of msg length
+    msg_len = pickle.loads(conn.recv(1024))
+    conn.send(pickle.dumps(f"SERVER: Size {msg_len} recieved"))
 
-    while pos < msg_len:
-        packet = conn.recv(max_msg_size)
-        pos += max_msg_size
-        arr.extend(packet)
+    #rec weights
+    data = conn.recv(msg_len)
+    #conn.send(pickle.dumps(f"SERVER: Recieved weights"))
 
-    byteObj = bytes(arr) #TODO: check if byte string is faster
+    print(sys.getsizeof(data), f" bytes recieved from {address}")
+    data = update_sync(data, worker_weights_queue, mutex, new_weights)
 
-    print(sys.getsizeof(byteObj), f" bytes recieved from {address}")
-
-    data = update_sync(byteObj, worker_weights_queue, mutex, new_weights)
     print(f"sending {sys.getsizeof(data)} bytes to {address}")
-
+    
+    #send size of weights
+    conn.send(pickle.dumps(sys.getsizeof(data)))
     conn.send(data)
     conn.close()
 

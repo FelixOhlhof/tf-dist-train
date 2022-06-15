@@ -43,22 +43,22 @@ class Client():
         # Send weights and get new new calculated weights
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
+            #send size of weights
+            s.send(pickle.dumps(sys.getsizeof(b_weights)))
+            print(pickle.loads(s.recv(1024)))
+
+            #send weights
             s.sendall(b_weights)
-            
-            msg_len = 31914802 #TODO: auto
-            arr = bytearray()
-            pos = 0      
-            max_msg_size = 4096
+            #print(pickle.loads(s.recv(1024)))
 
-            while pos < msg_len:
-                packet = s.recv(max_msg_size)
-                pos += max_msg_size
-                arr.extend(packet)
-                #print("received: ", len(arr), "von: ", msg_len)
+            #get size of new weights
+            msg_len = pickle.loads(s.recv(1024))
 
-            byteObj = bytes(arr)
+            #rec new weights
+            print(f"Recieved length of new weights {msg_len}")
+            data = s.recv(msg_len)
 
-            new_weights = pickle.loads(byteObj)
+            new_weights = pickle.loads(data)
             print("Recieved new weights! First weight after merging:", new_weights[0][0][0][0][0])
             return new_weights
 
