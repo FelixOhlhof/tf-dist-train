@@ -9,15 +9,13 @@ from numpy import average
 from numpy import array
 import random
 
-# Number of workers
-workers_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
+WORKERS_COUNT = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
 
 def get_average_weights(members):
     # prepare an array of equal weights
     n_models = len(members)
     weights = [1/n_models for i in range(1, n_models+1)]
 
-    print(f"members len: {members}")
     new_weights = members[0]
     
     # determine how many layers need to be averaged
@@ -40,16 +38,25 @@ def calc_new_weights(worker_weights_queue, new_weights):
     while True:
         sleep(0.1)
         #Every worker send its weights?
-        if(worker_weights_queue.qsize() == workers_count):
+        if(worker_weights_queue.qsize() == WORKERS_COUNT):
             #Mean, Set new_weights
             print("Calculating new weights")
             l = list()
+
             while not worker_weights_queue.empty():
-                l.append(worker_weights_queue.get())
-            #new weights
-            nw = get_average_weights(l)
-            for i in range(workers_count):
-                new_weights.put(nw)
+                data = worker_weights_queue.get()
+                if(data != -1):
+                    l.append(data)
+
+            if(len(l) == 0):
+                for i in range(WORKERS_COUNT):
+                    new_weights.put(-1)
+            else:
+                # calc weights
+                nw = get_average_weights(l)
+                #put cal weights in queue for every worker
+                for i in range(WORKERS_COUNT):
+                    new_weights.put(nw)
             
 
 def update_sync(data, worker_weights_queue, new_weights): 
@@ -60,24 +67,43 @@ def update_sync(data, worker_weights_queue, new_weights):
     return pickle.dumps(new_weights.get())
 
 def handle(conn, address, worker_weights_queue, new_weights):
-    print(f"Client {address} connected")
-    #rec size of msg length
-    msg_len = pickle.loads(conn.recv(1024))
-    conn.send(pickle.dumps(f"SERVER: Size {msg_len} recieved"))
+    try:
+        print(f"Client {address} connected")
+        # rec size of msg length
+        msg_len = pickle.loads(conn.recv(1024))
+        conn.send(pickle.dumps(f"SERVER: Size {msg_len} recieved"))
 
-    #rec weights
-    data = conn.recv(msg_len)
-    #conn.send(pickle.dumps(f"SERVER: Recieved weights"))
+        if(msg_len == -1): # -1 = skip flag
+            # clients weights didn't improve, set skip flag for queue
+            worker_weights_queue.put(-1)
+            #wait for calculation
+            data = new_weights.get()
 
-    print(sys.getsizeof(data), f" bytes recieved from {address}")
-    data = update_sync(data, worker_weights_queue, new_weights)
+            if(data == -1):
+                #send skip flag
+                conn.send(pickle.dumps(-1))
+            else:
+                # send size of weights
+                conn.send(pickle.dumps(sys.getsizeof(data)))
+                # send weights
+                conn.send(data)
+            return
 
-    print(f"sending {sys.getsizeof(data)} bytes to {address}")
-    
-    #send size of weights
-    conn.send(pickle.dumps(sys.getsizeof(data)))
-    conn.send(data)
-    conn.close()
+        # rec weights
+        data = conn.recv(msg_len)
+        # conn.send(pickle.dumps(f"SERVER: Recieved weights"))
+
+        print(sys.getsizeof(data), f" bytes recieved from {address}")
+        data = update_sync(data, worker_weights_queue, new_weights)
+
+        print(f"sending {sys.getsizeof(data)} bytes to {address}")
+        
+        # send size of weights
+        conn.send(pickle.dumps(sys.getsizeof(data)))
+        # send weights
+        conn.send(data)
+    finally:
+        conn.close()
 
 class Server():
     def __init__(self, hostname, port):

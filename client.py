@@ -14,27 +14,65 @@ from http import client
 from pathlib import Path
 
 class Client():
-    def __init__(self, hostname, port, client_id, client_count, dataset_name, single_classification_mode):
-        os.environ['PYTHONHASHSEED'] = '0'
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        self.hostname = hostname # The server's hostname or IP address
-        self.port = port # The port used by the server
-        self.client_id = client_id # The ID of the worker/client
-        self.client_count = client_count # Total worker/client count TODO: clients register -> server starts training (by command) 
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{dataset_name}", self.client_id, self.client_count, single_classification_mode)
+    def __init__(self):
+        os.environ['PYTHONHASHSEED'] = '0' # For the seed
+        os.environ['CUDA_VISIBLE_DEVICES'] = '' # For the seed
+        self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
+        self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
+        self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
+        self.client_id = args.id # The ID of the worker/client
+        self.client_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"]) # Total worker/client count TODO: clients register -> server starts training (by command) 
+        self.dataset_name = config["CLIENT"]["DATASET_NAME"]
+        self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
+        self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
+        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.single_classification_mode)
 
-    def start_dist_training(self, epochs):
+    def start_dist_training(self):
         classifier = Flowerclassifier(self.data_dir)
+        best_accuracy = 0.0
 
-        for i in range(epochs):
+        for i in range(self.epochs):
             validation = classifier.train_epoch(inner_epoch=1)
+            new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
-            #TODO: check if accuracy improved otherwise don't mean => send skip to server or similar
-            updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
+
+            if new_accuracy > best_accuracy or self.send_weights_without_improvement:
+                # send weights and get new weights
+                updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
+            else:
+                # send skip to server
+                print(f"Accuracy did not improve -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
+                updated_weights = self.send_skip(old_weights=classifier.model.get_weights())
+
+            # set updated weights    
             classifier.model.set_weights(updated_weights)
 
+            if(new_accuracy > best_accuracy):
+                best_accuracy = new_accuracy
+
         print(classifier.model.history.history)
-        classifier.classify_picture()
+        classifier.classify_single_picture()
+
+    def send_skip(self, old_weights):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((self.hostname, self.port))
+
+            #send skip flag
+            s.send(pickle.dumps(-1))
+            print(pickle.loads(s.recv(1024)))
+
+            #get size of new weights
+            msg_len = pickle.loads(s.recv(1024))
+
+            if(msg_len == -1):
+                # no worker improved, server sent skip flag
+                print("No worker improved, continuing with old weights!")
+                return old_weights
+
+            # avg weights from other workers
+            new_weights = pickle.loads(s.recv(msg_len))
+            print("Recieved new weights")
+            return new_weights
 
 
     def retrieve_new_weights(self, old_weights):
@@ -45,6 +83,7 @@ class Client():
         # Send weights and get new new calculated weights
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
+
             #send size of weights
             s.send(pickle.dumps(sys.getsizeof(b_weights)))
             print(pickle.loads(s.recv(1024)))
@@ -67,5 +106,5 @@ class Client():
 
 
 if __name__ == "__main__":
-    client = Client(config["SERVER"]["HOST"], (int)(config["SERVER"]["PORT"]), client_id=args.id , client_count=(int)(config["CLIENT"]["TOTAL_CLIENTS"]), dataset_name=config["CLIENT"]["DATASET_NAME"], single_classification_mode=config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE"))    
-    client.start_dist_training(epochs=(int)(config["CLIENT"]["EPOCHES"]))
+    client = Client()    
+    client.start_dist_training()

@@ -94,7 +94,7 @@ class Flowerclassifier():
     return history
 
 
-  def classify_picture(self):
+  def classify_single_picture(self):
     img = keras.preprocessing.image.load_img(
         'Flowers/myroses2.jpeg', target_size=(self.img_height, self.img_width)
     )
