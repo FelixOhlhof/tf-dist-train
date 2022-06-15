@@ -14,7 +14,8 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
         return copy_path
 
     #clear
-    shutil.rmtree(copy_path)
+    if(os.path.isdir(copy_path)):
+        shutil.rmtree(copy_path)
 
     # download pictures if not existing yet
     if(not os.path.isdir(directory)):
