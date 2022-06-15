@@ -13,6 +13,9 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
     if(check_if_already_split(copy_path, single_classification_mode)):
         return copy_path
 
+    #clear
+    shutil.rmtree(copy_path)
+
     # download pictures if not existing yet
     if(not os.path.isdir(directory)):
         dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
@@ -32,8 +35,7 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
         #assign every worker one class
         if(worker_count > len(classes)):
             raise "Number of clients can not exceed number of classes (single_classification_mode=true)"
-        
-        shutil.copytree(directory + "\{}".format(classes[worker_index]), copy_path+ "\{}".format(classes[worker_index]))
+        shutil.copytree(directory + "\{}".format(classes[worker_index]), copy_path + "\{}".format(classes[worker_index]))
     else:
         #split every class in even parts
         for class_name in classes:
