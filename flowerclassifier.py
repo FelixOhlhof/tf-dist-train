@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import random as rn
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -8,13 +9,15 @@ from tensorflow.keras.models import Sequential
 class Flowerclassifier():
   def __init__(self, data_dir):
     #define preprocessing parameters
+    np.random.seed(37)
+    rn.seed(1254)
+    tf.random.set_seed(89)
     self.batch_size = 32
     self.img_height = 180
     self.img_width = 180
     self.num_classes = 5
     self.model = self.generate_model()
     self.train_ds, self.val_ds = self.get_datasets(data_dir)
-    tf.random.set_seed(1234)
     
 
   def generate_model(self):

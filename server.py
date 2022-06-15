@@ -13,28 +13,30 @@ import random
 workers_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
 
 def get_average_weights(members):
-	# prepare an array of equal weights
-	n_models = len(members)
-	weights = [1/n_models for i in range(1, n_models+1)]
-	new_weights = members[0]
+    # prepare an array of equal weights
+    n_models = len(members)
+    weights = [1/n_models for i in range(1, n_models+1)]
 
-	# determine how many layers need to be averaged
-	n_layers = len(members[0])
-	
-	for layer in range(n_layers):
-		# collect this layer from each model
-		layer_weights = array([model[layer] for model in members])
-		# weighted average of weights for this layer
-		avg_layer_weights = average(layer_weights, axis=0, weights=weights)
-		# store average layer weights
-		new_weights[layer] = avg_layer_weights
+    print(f"members len: {members}")
+    new_weights = members[0]
+    
+    # determine how many layers need to be averaged
+    n_layers = len(members[0])
 
-		# f = open("sample_org.txt", "wb")
-		# f.write(pickle.dumps(new_weights))
-		# f.close()
-	return new_weights
+    for layer in range(n_layers):
+        # collect this layer from each model
+        layer_weights = array([model[layer] for model in members])
+        # weighted average of weights for this layer
+        avg_layer_weights = average(layer_weights, axis=0, weights=weights)
+        # store average layer weights
+        new_weights[layer] = avg_layer_weights
 
-def calc_new_weights(worker_weights_queue, new_weights, mutex):
+        # f = open("sample_org.txt", "wb")
+        # f.write(pickle.dumps(new_weights))
+        # f.close()
+    return new_weights
+
+def calc_new_weights(worker_weights_queue, new_weights):
     while True:
         sleep(0.1)
         #Every worker send its weights?
@@ -44,25 +46,20 @@ def calc_new_weights(worker_weights_queue, new_weights, mutex):
             l = list()
             while not worker_weights_queue.empty():
                 l.append(worker_weights_queue.get())
-            new_weights.append(get_average_weights(l))
+            #new weights
+            nw = get_average_weights(l)
+            for i in range(workers_count):
+                new_weights.put(nw)
             
 
-def update_sync(data, worker_weights_queue, mutex, new_weights): 
-    #Next epoch
-    # if(len(worker_weights) == 0 and len(new_weights) != 0):
-    #     new_weights[:] = []
-
+def update_sync(data, worker_weights_queue, new_weights): 
     b = pickle.loads(data)
-    worker_weights_queue.put(b)   
-
-    print("Worker waiting") 
-
+    worker_weights_queue.put(b)  
     #Sync/wait for the other worker
-    while(len(new_weights) == 0):
-        sleep(0.05)
-    return pickle.dumps(new_weights[0])
+    print("Worker waiting") 
+    return pickle.dumps(new_weights.get())
 
-def handle(conn, address, worker_weights_queue, mutex, new_weights):
+def handle(conn, address, worker_weights_queue, new_weights):
     print(f"Client {address} connected")
     #rec size of msg length
     msg_len = pickle.loads(conn.recv(1024))
@@ -73,7 +70,7 @@ def handle(conn, address, worker_weights_queue, mutex, new_weights):
     #conn.send(pickle.dumps(f"SERVER: Recieved weights"))
 
     print(sys.getsizeof(data), f" bytes recieved from {address}")
-    data = update_sync(data, worker_weights_queue, mutex, new_weights)
+    data = update_sync(data, worker_weights_queue, new_weights)
 
     print(f"sending {sys.getsizeof(data)} bytes to {address}")
     
@@ -88,9 +85,7 @@ class Server():
         self.port = port
         manager = multiprocessing.Manager()
         self.worker_weights_queue = multiprocessing.Queue()
-        self.new_weights = manager.list() #TODO: Array
-        self.mutex = multiprocessing.RLock()
-        #self.mutex.acquire()
+        self.new_weights = multiprocessing.Queue()
 
     def start(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -98,13 +93,13 @@ class Server():
         self.socket.listen(1)
 
         #start calculating process
-        process = multiprocessing.Process(target=calc_new_weights, args=(self.worker_weights_queue, self.new_weights, self.mutex))
+        process = multiprocessing.Process(target=calc_new_weights, args=(self.worker_weights_queue, self.new_weights))
         process.daemon = True
         process.start()
         
         while True:
             conn, address = self.socket.accept()
-            process = multiprocessing.Process(target=handle, args=(conn, address, self.worker_weights_queue, self.mutex, self.new_weights))
+            process = multiprocessing.Process(target=handle, args=(conn, address, self.worker_weights_queue, self.new_weights))
             process.daemon = True
             process.start()
 

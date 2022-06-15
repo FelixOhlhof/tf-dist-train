@@ -15,6 +15,8 @@ from pathlib import Path
 
 class Client():
     def __init__(self, hostname, port, client_id, client_count, dataset_name, single_classification_mode):
+        os.environ['PYTHONHASHSEED'] = '0'
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''
         self.hostname = hostname # The server's hostname or IP address
         self.port = port # The port used by the server
         self.client_id = client_id # The ID of the worker/client
