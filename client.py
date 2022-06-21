@@ -1,17 +1,19 @@
 import argparse
-from struct import pack
-from time import sleep
+import configparser
+# Parameters
 parser = argparse.ArgumentParser(description='Client for tensorflow distributed training')
 parser.add_argument("-i", "--id", help="The id of the client", type=int, required=True)
 args = parser.parse_args()
-import configparser
 config = configparser.ConfigParser()
 config.read("config.ini")
+from struct import pack
+from time import sleep
 import pickle, sys, os
 import socket, util
 from flowerclassifier import Flowerclassifier
 from http import client
 from pathlib import Path
+
 
 class Client():
     def __init__(self):
@@ -37,6 +39,7 @@ class Client():
             print(validation.history)
 
             if new_accuracy > best_accuracy or self.send_weights_without_improvement:
+                print(f" -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
                 # send weights and get new weights
                 updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
             else:
@@ -63,6 +66,7 @@ class Client():
 
             #get size of new weights
             msg_len = pickle.loads(s.recv(1024))
+            print(f"Recieved size from Server {msg_len}")
 
             if(msg_len == -1):
                 # no worker improved, server sent skip flag
