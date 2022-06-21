@@ -71,21 +71,25 @@ def handle(conn, address, worker_weights_queue, new_weights):
         print(f"Client {address} connected")
         # rec size of msg length
         msg_len = pickle.loads(conn.recv(1024))
-        conn.send(pickle.dumps(f"SERVER: Size {msg_len} recieved"))
+        conn.send(pickle.dumps(f"SERVER: Skip flag {msg_len} recieved"))
 
         if(msg_len == -1): # -1 = skip flag
-            # clients weights didn't improve, set skip flag for queue
+            # client weights didn't improve, set skip flag for queue
+            print(f"Client {address} sent skip flag")
             worker_weights_queue.put(-1)
             #wait for calculation
             data = new_weights.get()
 
             if(data == -1):
                 #send skip flag
+                print(f"No client improved, sending skip flag to client {address}")
                 conn.send(pickle.dumps(-1))
             else:
                 # send size of weights
+                data = pickle.dumps(data)
                 conn.send(pickle.dumps(sys.getsizeof(data)))
                 # send weights
+                print(f"Sending new weights to client {address}")
                 conn.send(data)
             return
 
