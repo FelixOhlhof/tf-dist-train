@@ -17,8 +17,9 @@ from pathlib import Path
 
 class Client():
     def __init__(self):
-        os.environ['PYTHONHASHSEED'] = '0' # For the seed
-        os.environ['CUDA_VISIBLE_DEVICES'] = '' # For the seed
+        if(config.getboolean("CLIENT","USE_SEED")):
+            os.environ['PYTHONHASHSEED'] = config["CLIENT"]["SEED"] # set the seed
+            os.environ['CUDA_VISIBLE_DEVICES'] = '' # nessesary for the seed
         self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
         self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
         self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
