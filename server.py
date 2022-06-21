@@ -28,21 +28,20 @@ def get_average_weights(members):
         avg_layer_weights = average(layer_weights, axis=0, weights=weights)
         # store average layer weights
         new_weights[layer] = avg_layer_weights
-
-        # f = open("sample_org.txt", "wb")
-        # f.write(pickle.dumps(new_weights))
-        # f.close()
     return new_weights
 
 def calc_new_weights(worker_weights_queue, new_weights):
     while True:
         sleep(0.1)
         #Every worker send its weights?
-        if(worker_weights_queue.qsize() == WORKERS_COUNT):
+        if(worker_weights_queue.full()):
             #Mean, Set new_weights
             print("Calculating new weights")
             l = list()
 
+            while(worker_weights_queue.empty()):
+                print("some extra time") # nessesary because qsize()/qfull() is not relyable
+                sleep(0.1)
             while not worker_weights_queue.empty():
                 data = worker_weights_queue.get()
                 if(data != -1):
@@ -61,7 +60,7 @@ def calc_new_weights(worker_weights_queue, new_weights):
 
 def update_sync(data, worker_weights_queue, new_weights): 
     b = pickle.loads(data)
-    worker_weights_queue.put(b)  
+    worker_weights_queue.put(b) 
     #Sync/wait for the other worker
     print("Worker waiting") 
     return pickle.dumps(new_weights.get())
@@ -71,7 +70,7 @@ def handle(conn, address, worker_weights_queue, new_weights):
         print(f"Client {address} connected")
         # rec size of msg length
         msg_len = pickle.loads(conn.recv(1024))
-        conn.send(pickle.dumps(f"SERVER: Skip flag {msg_len} recieved"))
+        conn.send(pickle.dumps(f"SERVER: msg_len {msg_len} recieved"))
 
         if(msg_len == -1): # -1 = skip flag
             # client weights didn't improve, set skip flag for queue
@@ -101,7 +100,8 @@ def handle(conn, address, worker_weights_queue, new_weights):
         data = update_sync(data, worker_weights_queue, new_weights)
 
         print(f"sending {sys.getsizeof(data)} bytes to {address}")
-        
+        if(sys.getsizeof(data) == 50):
+            print("oh no")
         # send size of weights
         conn.send(pickle.dumps(sys.getsizeof(data)))
         # send weights
@@ -114,7 +114,7 @@ class Server():
         self.hostname = hostname
         self.port = port
         manager = multiprocessing.Manager()
-        self.worker_weights_queue = multiprocessing.Queue()
+        self.worker_weights_queue = multiprocessing.Queue(WORKERS_COUNT)
         self.new_weights = multiprocessing.Queue()
 
     def start(self):
