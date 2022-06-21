@@ -63,7 +63,7 @@ class Flowerclassifier():
     #load training data
     train_ds = tf.keras.preprocessing.image_dataset_from_directory(
       data_dir,
-      validation_split=0.2,
+      validation_split=0.1,
       subset="training",
       seed=123,
       image_size=(self.img_height, self.img_width),
@@ -71,7 +71,7 @@ class Flowerclassifier():
 
     val_ds = tf.keras.preprocessing.image_dataset_from_directory(
       data_dir,
-      validation_split=0.2,
+      validation_split=0.1,
       subset="validation",
       seed=123,
       image_size=(self.img_height, self.img_width),

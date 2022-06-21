@@ -35,6 +35,7 @@ class Client():
         best_accuracy = 0.0
 
         for i in range(self.epochs):
+            print(f"************* EPOCH {i+1} *************")
             validation = classifier.train_epoch(inner_epoch=1)
             new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
@@ -53,6 +54,7 @@ class Client():
 
             if(new_accuracy > best_accuracy):
                 best_accuracy = new_accuracy
+            print()
 
         print(classifier.model.history.history)
         classifier.classify_single_picture()

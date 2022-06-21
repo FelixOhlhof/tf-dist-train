@@ -11,8 +11,8 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
 
     #21.06 disabled -> TODO: needs to return false if TOTAL_CLIENTS increased
     # return if data is already split
-    if(check_if_already_split(copy_path, single_classification_mode)):
-        return copy_path
+    # if(check_if_already_split(copy_path, single_classification_mode)):
+    #     return copy_path
 
     #clear
     if(os.path.isdir(copy_path)):
