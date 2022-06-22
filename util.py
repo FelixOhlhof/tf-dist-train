@@ -140,7 +140,7 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
 
 def check_if_already_split(copy_path, single_classification_mode):
     if(os.path.isdir(copy_path)):
-        for base, dirs, files in os.walk(copy_path):
+        for _, dirs, _ in os.walk(copy_path):
             if(single_classification_mode and len(dirs) == 1):
                 return True
             if(not single_classification_mode and len(dirs) != 1):
