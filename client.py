@@ -11,6 +11,7 @@ from time import sleep
 import pickle, sys, os
 import socket, util
 from flowerclassifier import Flowerclassifier
+from binary_flowerclassifier import Flowerclassifier as BinaryClassifier
 from http import client
 from pathlib import Path
 
@@ -18,8 +19,8 @@ from pathlib import Path
 class Client():
     def __init__(self):
         if(config.getboolean("CLIENT","USE_SEED")):
-            os.environ['PYTHONHASHSEED'] = config["CLIENT"]["SEED"] # set the seed
             os.environ['CUDA_VISIBLE_DEVICES'] = '' # nessesary for the seed
+        self.seed = (int)(config["CLIENT"]["SEED"]) # get the seed
         self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
         self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
         self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
@@ -28,11 +29,23 @@ class Client():
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
         self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.single_classification_mode)
+        self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
+        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.single_classification_mode, self.debug_mode)
 
     def start_dist_training(self):
-        classifier = Flowerclassifier(self.data_dir)
+        if(self.single_classification_mode):
+            self.train_binary()
+        else:
+            self.train_multi_class()
+
+
+    def train_binary(self):
+        classifier = BinaryClassifier(self.data_dir, self.seed)
+        classifier.train_epoch(self.epochs)
+
+    def train_multi_class(self):
         best_accuracy = 0.0
+        classifier = Flowerclassifier(self.data_dir, self.seed)
 
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")

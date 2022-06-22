@@ -5,7 +5,8 @@ import os
 import tensorflow as tf
 import pathlib
 
-def copy_pictures(directory, worker_index, worker_count, single_classification_mode):
+def copy_pictures(directory, worker_index, worker_count, single_classification_mode, debug_mode):
+    print("Setting up training data...")
     classes = []
     copy_path = directory[0:directory.rindex('\\')] + "\{}".format(worker_index)
 
@@ -13,6 +14,9 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
     # return if data is already split
     # if(check_if_already_split(copy_path, single_classification_mode)):
     #     return copy_path
+
+    if(debug_mode):
+        return copy_path
 
     #clear
     if(os.path.isdir(copy_path)):
@@ -37,7 +41,69 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
         #assign every worker one class
         if(worker_count > len(classes)):
             raise "Number of clients can not exceed number of classes (single_classification_mode=true)"
-        shutil.copytree(directory + "\{}".format(classes[worker_index]), copy_path + "\{}".format(classes[worker_index]))
+
+
+        #split every class in even parts
+        for class_name in classes:
+            count = 0
+
+            #count images in dir
+            for picture in os.listdir(directory + "\{}".format(class_name)):
+                f = os.path.join(f"{directory}\\{class_name}", picture)
+                # checking if it is a file
+                if os.path.isfile(f):
+                    count += 1
+
+            start_index = 0
+            end_index = (int)(count * 0.8)
+            count = 0
+
+            for picture in os.listdir(directory + "\{}".format(class_name)):
+                f = os.path.join(f"{directory}\\{class_name}", picture)
+                # checking if it is a file
+                if os.path.isfile(f):
+                    count += 1
+                if(class_name != classes[worker_index - 1]):
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\test\\not_{classes[worker_index - 1]}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\train\\not_{classes[worker_index - 1]}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+                else:
+                    if (count in range(start_index, end_index)):
+                        src_fpath = f
+                        dest_fpath = f"{copy_path}\\train\\{class_name}\\{picture}"
+                        try:
+                            shutil.copy(src_fpath, dest_fpath)
+                        except IOError as io_err:
+                            os.makedirs(os.path.dirname(dest_fpath))
+                            shutil.copy(src_fpath, dest_fpath)
+                            pass
+                    else:
+                        src_fpath = f
+                        dest_fpath = f"{copy_path}\\test\\{class_name}\\{picture}"
+                        try:
+                            shutil.copy(src_fpath, dest_fpath)
+                        except IOError as io_err:
+                            os.makedirs(os.path.dirname(dest_fpath))
+                            shutil.copy(src_fpath, dest_fpath)
+                            pass
+
+
+        # shutil.copytree(directory + "\{}".format(classes[worker_index - 1]), copy_path + "\\train\{}".format(classes[worker_index - 1]))
+        # shutil.copytree(directory, copy_path + "\\test")
     else:
         #split every class in even parts
         for class_name in classes:
