@@ -77,7 +77,7 @@ class Client():
         #classifier.show_plot(validation, self.epochs)
 
     def send_skip(self, old_weights):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, proto=6) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
 
             #send skip flag
@@ -105,7 +105,7 @@ class Client():
         print(sys.getsizeof(b_weights), " bytes will be transfered to server...")
 
         # Send weights and get new new calculated weights
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, proto=6) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
 
             #send size of weights
