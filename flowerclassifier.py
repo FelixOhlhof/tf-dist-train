@@ -1,21 +1,28 @@
+import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import random as rn
+import os
 
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 class Flowerclassifier():
-  def __init__(self, data_dir, seed):
+  def __init__(self, client_id, data_dir, seed, save_checkpoint, load_checkpoint):
     #define preprocessing parameters
     #np.random.seed(37)
     rn.seed(1254)
     tf.random.set_seed(seed)
+    self.client_id = client_id
+    self.model_path = './bestmodel.hdf5'
     self.batch_size = 32
     self.img_height = 180
     self.img_width = 180
     self.num_classes = 5
+    self.save_checkpoint = save_checkpoint
+    self.load_checkpoint = load_checkpoint
+    self.callbacks_list = None
     self.model = self.generate_model()
     self.train_ds, self.val_ds = self.get_datasets(data_dir)
     
@@ -42,7 +49,7 @@ class Flowerclassifier():
     layers.MaxPooling2D(),
     layers.Conv2D(64, 3, padding='same', activation='relu'),
     layers.MaxPooling2D(),
-    layers.Dropout(0.2),
+    layers.Dropout(0.2), #nachlesen, Frochte
     layers.Flatten(),
     layers.Dense(128, activation='relu'),
     layers.Dense(self.num_classes)
@@ -51,10 +58,16 @@ class Flowerclassifier():
     #compile the model
     model.compile(optimizer='adam', loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
 
-    #Checkpoint for best model
-    # filepath = './bestmodel.hdf5'
-    # checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
-    # callbacks_list = [checkpoint]
+    if(self.save_checkpoint and self.client_id == 1):
+      #Checkpoint for best model, only for 1 client
+      filepath = self.model_path
+      checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='val_accuracy', verbose=1, save_best_only=True, mode='max')
+      self.callbacks_list = [checkpoint]
+
+    if(self.load_checkpoint and os.path.exists(self.model_path)):
+      #load old model to keep training
+      model.load_weights(self.model_path)
+      print("Loaded saved model!")
 
     return model
 
@@ -89,9 +102,34 @@ class Flowerclassifier():
       self.train_ds,
       validation_data=self.val_ds,
       epochs=inner_epoch,
-      callbacks= None
+      callbacks= self.callbacks_list
     )
     return history
+
+
+  def show_plot(self, history, epochs):
+    #visualize training results
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs_range = range(epochs)
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_range, acc, label='Training Accuracy')
+    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+    plt.legend(loc='lower right')
+    plt.title('Training and Validation Accuracy')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_range, loss, label='Training Loss')
+    plt.plot(epochs_range, val_loss, label='Validation Loss')
+    plt.legend(loc='upper right')
+    plt.title('Training and Validation Loss')
+    plt.show()
 
 
   def classify_single_picture(self):

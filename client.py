@@ -19,7 +19,7 @@ from pathlib import Path
 class Client():
     def __init__(self):
         if(config.getboolean("CLIENT","USE_SEED")):
-            os.environ['CUDA_VISIBLE_DEVICES'] = '' # nessesary for the seed
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1' # nessesary for the seed
         self.seed = (int)(config["CLIENT"]["SEED"]) # get the seed
         self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
         self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
@@ -29,6 +29,8 @@ class Client():
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
         self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
+        self.save_checkpoint = config.getboolean("CLIENT","SAVE_CHECKPOINT")
+        self.load_checkpoint = config.getboolean("CLIENT","LOAD_CHECKPOINT")
         self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
         self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.single_classification_mode, self.debug_mode)
 
@@ -45,14 +47,15 @@ class Client():
 
     def train_multi_class(self):
         best_accuracy = 0.0
-        classifier = Flowerclassifier(self.data_dir, self.seed)
+        validation = None
+        classifier = Flowerclassifier(self.client_id, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint)
 
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
             validation = classifier.train_epoch(inner_epoch=1)
             new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
-
+            
             if new_accuracy > best_accuracy or self.send_weights_without_improvement:
                 print(f" -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
                 # send weights and get new weights
@@ -71,9 +74,10 @@ class Client():
 
         print(classifier.model.history.history)
         classifier.classify_single_picture()
+        #classifier.show_plot(validation, self.epochs)
 
     def send_skip(self, old_weights):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, proto=6) as s:
             s.connect((self.hostname, self.port))
 
             #send skip flag
@@ -101,7 +105,7 @@ class Client():
         print(sys.getsizeof(b_weights), " bytes will be transfered to server...")
 
         # Send weights and get new new calculated weights
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM, proto=6) as s:
             s.connect((self.hostname, self.port))
 
             #send size of weights
