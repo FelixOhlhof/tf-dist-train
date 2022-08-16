@@ -9,14 +9,15 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 class Flowerclassifier():
-  def __init__(self, client_id, data_dir, seed, save_checkpoint, load_checkpoint):
+  def __init__(self, client_id, data_dir, seed, save_checkpoint, load_checkpoint, batch_size):
     #define preprocessing parameters
     #np.random.seed(37)
-    rn.seed(1254)
+    rn.seed(seed)
     tf.random.set_seed(seed)
+    self.seed = seed
     self.client_id = client_id
     self.model_path = './bestmodel.hdf5'
-    self.batch_size = 32
+    self.batch_size = batch_size
     self.img_height = 180
     self.img_width = 180
     self.num_classes = 5

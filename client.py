@@ -10,6 +10,7 @@ from struct import pack
 from time import sleep
 import pickle, sys, os
 import socket, util
+import time
 from flowerclassifier import Flowerclassifier
 from binary_flowerclassifier import Flowerclassifier as BinaryClassifier
 from http import client
@@ -18,7 +19,8 @@ from pathlib import Path
 
 class Client():
     def __init__(self):
-        if(config.getboolean("CLIENT","USE_SEED")):
+        self.use_gpu = config.getboolean("CLIENT","USE_GPU")
+        if(not self.use_gpu):
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1' # nessesary for the seed
         self.seed = (int)(config["CLIENT"]["SEED"]) # get the seed
         self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
@@ -26,6 +28,7 @@ class Client():
         self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
         self.client_id = args.id # The ID of the worker/client
         self.client_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"]) # Total worker/client count TODO: clients register -> server starts training (by command) 
+        self.batch_size = (int)(config["CLIENT"]["BATCH_SIZE"])
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
         self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
@@ -39,8 +42,7 @@ class Client():
             self.train_binary()
         else:
             self.train_multi_class()
-
-
+        
     def train_binary(self):
         classifier = BinaryClassifier(self.data_dir, self.seed)
         classifier.train_epoch(self.epochs)
@@ -48,10 +50,11 @@ class Client():
     def train_multi_class(self):
         best_accuracy = 0.0
         validation = None
-        classifier = Flowerclassifier(self.client_id, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint)
+        classifier = Flowerclassifier(self.client_id, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size)
 
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
+            start_time = time.time()
             validation = classifier.train_epoch(inner_epoch=1)
             new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
@@ -75,6 +78,13 @@ class Client():
         print(classifier.model.history.history)
         classifier.classify_single_picture()
         #classifier.show_plot(validation, self.epochs)
+
+        # report
+        end_time = time.time()
+        time_lapsed = end_time - start_time
+        if(self.client_id == 1):
+            util.report(self.client_count, self.epochs, classifier.batch_size, len(os.listdir(self.data_dir)), self.seed,self.use_gpu, util.time_convert(time_lapsed))
+
 
     def send_skip(self, old_weights):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -107,7 +117,7 @@ class Client():
         # Send weights and get new new calculated weights
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.hostname, self.port))
-
+            
             #send size of weights
             s.send(pickle.dumps(sys.getsizeof(b_weights)))
             print(pickle.loads(s.recv(1024)))

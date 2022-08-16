@@ -1,5 +1,6 @@
 from copy import copy
 from operator import length_hint
+from csv import writer
 import shutil
 import os
 import tensorflow as tf
@@ -146,3 +147,24 @@ def check_if_already_split(copy_path, single_classification_mode):
             if(not single_classification_mode and len(dirs) != 1):
                 return True
             return False
+
+            
+def append_list_as_row(file_name, list_of_elem):
+    # Open file in append mode
+    with open(file_name, 'a+', newline='') as write_obj:
+        # Create a writer object from csv module
+        csv_writer = writer(write_obj, delimiter=';')
+        if(os.path.exists(file_name)):
+            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'AVG_PICTURES_PER_WORKER', 'SEED', 'USE_GPU', 'TOTAL_TIME'])
+        # Add contents of list as last row in the csv file
+        csv_writer.writerow(list_of_elem)
+
+def time_convert(sec):
+    mins = sec // 60
+    sec = sec % 60
+    hours = mins // 60
+    mins = mins % 60
+    return "{0}:{1}:{2}".format(int(hours), int(mins), int(sec))
+
+def report(number_of_workers, epoches, batch_size_per_worker, avg_pictures_per_worker, seed, use_gpu, total_time):
+    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, avg_pictures_per_worker, seed, use_gpu, total_time])
