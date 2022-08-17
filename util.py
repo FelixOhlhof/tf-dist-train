@@ -151,13 +151,20 @@ def check_if_already_split(copy_path, single_classification_mode):
             
 def append_list_as_row(file_name, list_of_elem):
     # Open file in append mode
+    if(not os.path.exists(file_name)):
+        with open(file_name, 'a+', newline='') as write_obj:
+            # Create a writer object from csv module
+            csv_writer = writer(write_obj, delimiter=';')
+            # Add contents of list as last row in the csv file
+            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'SEED', 'USE_GPU', 'ACCURACY', 'LOSS', 'VAL_ACCURACY', 'VAL_LOSS', 'TOTAL_TIME'])
+
+    # Open file in append mode
     with open(file_name, 'a+', newline='') as write_obj:
         # Create a writer object from csv module
         csv_writer = writer(write_obj, delimiter=';')
-        if(os.path.exists(file_name)):
-            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'AVG_PICTURES_PER_WORKER', 'SEED', 'USE_GPU', 'TOTAL_TIME'])
         # Add contents of list as last row in the csv file
         csv_writer.writerow(list_of_elem)
+        
 
 def time_convert(sec):
     mins = sec // 60
@@ -166,5 +173,5 @@ def time_convert(sec):
     mins = mins % 60
     return "{0}:{1}:{2}".format(int(hours), int(mins), int(sec))
 
-def report(number_of_workers, epoches, batch_size_per_worker, avg_pictures_per_worker, seed, use_gpu, total_time):
-    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, avg_pictures_per_worker, seed, use_gpu, total_time])
+def report(number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, accuracy, loss, val_accuracy, val_loss, total_time):
+    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, round(accuracy, 2), round(loss,2), round(val_accuracy,2), round(val_loss,2), total_time])

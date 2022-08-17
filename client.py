@@ -52,9 +52,10 @@ class Client():
         validation = None
         classifier = Flowerclassifier(self.client_id, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size)
 
+        start_time = time.time()
+
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
-            start_time = time.time()
             validation = classifier.train_epoch(inner_epoch=1)
             new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
@@ -83,7 +84,7 @@ class Client():
         end_time = time.time()
         time_lapsed = end_time - start_time
         if(self.client_id == 1):
-            util.report(self.client_count, self.epochs, classifier.batch_size, len(os.listdir(self.data_dir)), self.seed,self.use_gpu, util.time_convert(time_lapsed))
+            util.report(number_of_workers=self.client_count, epoches=self.epochs, batch_size_per_worker=classifier.batch_size, seed=self.seed, use_gpu=self.use_gpu, accuracy=validation.history['accuracy'][0],loss=validation.history['loss'][0], val_accuracy=validation.history['val_accuracy'][0], val_loss=validation.history['val_loss'][0], total_time=util.time_convert(time_lapsed))
 
 
     def send_skip(self, old_weights):
