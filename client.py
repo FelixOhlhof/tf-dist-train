@@ -27,9 +27,10 @@ class Client():
         self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
         self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
         self.client_id = args.id # The ID of the worker/client
-        self.client_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"]) # Total worker/client count TODO: clients register -> server starts training (by command) 
+        self.client_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
         self.batch_size = (int)(config["CLIENT"]["BATCH_SIZE"])
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
+        self.shuffle_data_mode = config["CLIENT"]["SHUFFLE_DATA_MODE"]
         self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
         self.save_checkpoint = config.getboolean("CLIENT","SAVE_CHECKPOINT")
@@ -50,13 +51,16 @@ class Client():
     def train_multi_class(self):
         best_accuracy = 0.0
         validation = None
-        classifier = Flowerclassifier(self.client_id, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size)
+        classifier = Flowerclassifier(self.client_id, self.client_count, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
 
         start_time = time.time()
 
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
-            validation = classifier.train_epoch(inner_epoch=1)
+            if(self.shuffle_data_mode):
+                validation = classifier.train_epoch_in_shuffle_mode(inner_epoch=1, current_epoch=i)
+            else:
+                validation = classifier.train_epoch(inner_epoch=1)
             new_accuracy = validation.history['accuracy'][0]
             print(validation.history)
             

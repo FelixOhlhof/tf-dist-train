@@ -3,19 +3,21 @@ import tensorflow as tf
 import numpy as np
 import random as rn
 import os
+import re
 
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 class Flowerclassifier():
-  def __init__(self, client_id, data_dir, seed, save_checkpoint, load_checkpoint, batch_size):
+  def __init__(self, client_id, client_count, data_dir, seed, save_checkpoint, load_checkpoint, batch_size, shuffle_data_mode):
     #define preprocessing parameters
     #np.random.seed(37)
     rn.seed(seed)
     tf.random.set_seed(seed)
     self.seed = seed
     self.client_id = client_id
+    self.client_count = client_count
     self.model_path = './bestmodel.hdf5'
     self.batch_size = batch_size
     self.img_height = 180
@@ -25,8 +27,12 @@ class Flowerclassifier():
     self.load_checkpoint = load_checkpoint
     self.callbacks_list = None
     self.model = self.generate_model()
-    self.train_ds, self.val_ds = self.get_datasets(data_dir)
     
+    if(shuffle_data_mode):
+      self.data = self.get_datasets_in_shuffle_mode(data_dir)
+    else:
+      self.data = self.get_datasets(data_dir)
+
 
   def generate_model(self):
     #create the model
@@ -73,6 +79,15 @@ class Flowerclassifier():
     return model
 
 
+  def get_datasets_in_shuffle_mode(self, data_dir):
+    data = []
+
+    for i in range(1, self.client_count + 1):
+      data.append(self.get_datasets(re.sub(r".$", str(i), data_dir)))
+
+    return data
+
+
   def get_datasets(self, data_dir):
     #load training data
     train_ds = tf.keras.preprocessing.image_dataset_from_directory(
@@ -95,13 +110,26 @@ class Flowerclassifier():
     self.class_names = train_ds.class_names
     print(self.class_names)
 
-    return (train_ds, val_ds)
+    return ((train_ds, val_ds))
 
 
   def train_epoch(self, inner_epoch):
     history = self.model.fit(
-      self.train_ds,
-      validation_data=self.val_ds,
+      self.data[0][0],
+      validation_data=self.data[0][1],
+      epochs=inner_epoch,
+      callbacks= self.callbacks_list
+    )
+    return history
+
+
+  def train_epoch_in_shuffle_mode(self, inner_epoch, current_epoch):
+    ds_index = (current_epoch + self.client_id - 1) % self.client_count
+    print("Data shuffle: Continuing with slice ", ds_index + 1, "...")
+
+    history = self.model.fit(
+      self.data[ds_index][0],
+      validation_data=self.data[ds_index][1],
       epochs=inner_epoch,
       callbacks= self.callbacks_list
     )
