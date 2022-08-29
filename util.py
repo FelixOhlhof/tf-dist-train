@@ -6,7 +6,7 @@ import os
 import tensorflow as tf
 import pathlib
 
-def copy_pictures(directory, worker_index, worker_count, single_classification_mode, debug_mode):
+def copy_pictures(directory, worker_index, worker_count, binary_classification_mode, debug_mode):
     print("Setting up training data...")
     classes = []
     copy_path = directory[0:directory.rindex('\\')] + "\{}".format(worker_index)
@@ -38,7 +38,7 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
         if not os.path.isfile(f):
             classes.append(class_name)
 
-    if(single_classification_mode):
+    if(binary_classification_mode):
         #assign every worker one class
         if(worker_count > len(classes)):
             raise "Number of clients can not exceed number of classes (single_classification_mode=true)"
@@ -65,23 +65,24 @@ def copy_pictures(directory, worker_index, worker_count, single_classification_m
                 if os.path.isfile(f):
                     count += 1
                 if(class_name != classes[worker_index - 1]):
-                    src_fpath = f
-                    dest_fpath = f"{copy_path}\\test\\not_{classes[worker_index - 1]}\\{picture}"
-                    try:
-                        shutil.copy(src_fpath, dest_fpath)
-                    except IOError as io_err:
-                        os.makedirs(os.path.dirname(dest_fpath))
-                        shutil.copy(src_fpath, dest_fpath)
-                        pass
-
-                    src_fpath = f
-                    dest_fpath = f"{copy_path}\\train\\not_{classes[worker_index - 1]}\\{picture}"
-                    try:
-                        shutil.copy(src_fpath, dest_fpath)
-                    except IOError as io_err:
-                        os.makedirs(os.path.dirname(dest_fpath))
-                        shutil.copy(src_fpath, dest_fpath)
-                        pass
+                    if (count not in range(start_index, end_index)):
+                        src_fpath = f
+                        dest_fpath = f"{copy_path}\\test\\not_{classes[worker_index - 1]}\\{picture}"
+                        try:
+                            shutil.copy(src_fpath, dest_fpath)
+                        except IOError as io_err:
+                            os.makedirs(os.path.dirname(dest_fpath))
+                            shutil.copy(src_fpath, dest_fpath)
+                            pass
+                    else:
+                        src_fpath = f
+                        dest_fpath = f"{copy_path}\\train\\not_{classes[worker_index - 1]}\\{picture}"
+                        try:
+                            shutil.copy(src_fpath, dest_fpath)
+                        except IOError as io_err:
+                            os.makedirs(os.path.dirname(dest_fpath))
+                            shutil.copy(src_fpath, dest_fpath)
+                            pass
                 else:
                     if (count in range(start_index, end_index)):
                         src_fpath = f
@@ -156,7 +157,7 @@ def append_list_as_row(file_name, list_of_elem):
             # Create a writer object from csv module
             csv_writer = writer(write_obj, delimiter=';')
             # Add contents of list as last row in the csv file
-            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'SEED', 'USE_GPU', 'ACCURACY', 'LOSS', 'VAL_ACCURACY', 'VAL_LOSS', 'TOTAL_TIME'])
+            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'SEED', 'USE_GPU', 'ACCURACY', 'LOSS', 'VAL_ACCURACY', 'VAL_LOSS', 'TOTAL_TIME', 'SCORE'])
 
     # Open file in append mode
     with open(file_name, 'a+', newline='') as write_obj:
@@ -173,5 +174,5 @@ def time_convert(sec):
     mins = mins % 60
     return "{0}:{1}:{2}".format(int(hours), int(mins), int(sec))
 
-def report(number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, accuracy, loss, val_accuracy, val_loss, total_time):
-    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, round(accuracy, 2), round(loss,2), round(val_accuracy,2), round(val_loss,2), total_time])
+def report(number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, accuracy, loss, val_accuracy, val_loss, total_time, score):
+    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, round(accuracy, 2), round(loss,2), round(val_accuracy,2), round(val_loss,2), total_time, round(score,2)])
