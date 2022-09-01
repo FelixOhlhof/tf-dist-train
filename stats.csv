@@ -1,3 +1,10 @@
 NUMBER_OF_WORKERS;EPOCHES;BATCH_SIZE_PER_WORKER;ONE_VS_REST;SHUFFLE_DATA_MODE;SEND_WEIGHTS_WITHOUT_IMPROVEMENT;SEED;USE_GPU;TOTAL_TIME;SCORE;ACCURACY_WORKER_1;LOSS_WORKER_1;VAL_ACCURACY_WORKER_1;VAL_LOSS_WORKER_1;GRAPH_WORKER_1;ACCURACY_WORKER_2;LOSS_WORKER_2;VAL_ACCURACY_WORKER_2;VAL_LOSS_WORKER_2;GRAPH_WORKER_2;ACCURACY_WORKER_3;LOSS_WORKER_3;VAL_ACCURACY_WORKER_3;VAL_LOSS_WORKER_3;GRAPH_WORKER_3;ACCURACY_WORKER_4;LOSS_WORKER_4;VAL_ACCURACY_WORKER_4;VAL_LOSS_WORKER_4;GRAPH_WORKER_4;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+1;10;32;False;False;False;123;True;0:0:57;0,69;0,76;0,6;0,69;0,86;results\1_10.08.17.png;
+2;10;32;False;False;False;123;False;0:4:21;0,61;0,69;0,76;0,63;0,93;results\1_10.16.07.png;0,71;0,76;0,7;0,79;results\2_10.16.11.png;
+4;10;32;False;False;False;123;False;0:3:54;0,56;0,66;0,86;0,59;1,06;results\1_10.44.26.png;0,66;0,89;0,57;0,96;results\2_10.44.29.png;0,65;0,88;0,66;0,92;results\3_10.44.33.png;0,68;0,85;0,64;0,83;results\4_10.44.37.png;
+1;10;16;False;False;False;123;True;0:0:52;0,69;0,77;0,61;0,75;0,72;results\1_10.46.28.png;
+2;10;16;False;False;False;123;False;0:4:6;0,59;0,72;0,73;0,67;0,8;results\1_10.51.09.png;0,73;0,69;0,69;0,82;results\2_10.51.14.png;
+4;10;16;False;False;False;123;False;0:4:3;0,55;0,67;0,82;0,62;0,9;results\1_10.55.50.png;0,66;0,88;0,56;0,9;results\2_10.55.54.png;0,68;0,82;0,6;1,05;results\3_10.55.58.png;0,69;0,79;0,69;0,81;results\4_10.56.02.png;
+1;10;64;False;False;False;123;True;0:0:40;0,73;0,73;0,7;0,7;0,8;results\1_11.03.45.png;
+2;10;64;False;False;False;123;False;0:3:35;0,61;0,7;0,78;0,64;0,96;results\1_11.08.05.png;0,68;0,78;0,7;0,76;results\2_11.08.09.png;
+4;10;64;False;False;False;123;False;0:3:37;0,59;0,62;0,96;0,53;1,01;results\1_11.12.19.png;0,67;0,89;0,6;0,97;results\2_11.12.23.png;0,63;0,93;0,66;0,98;results\3_11.12.27.png;0,63;0,92;0,68;0,83;results\4_11.12.31.png;
