@@ -1,10 +1,17 @@
+from ast import While
 from copy import copy
 from operator import length_hint
 from csv import writer
 import shutil
 import os
+from time import sleep
 import tensorflow as tf
 import pathlib
+import matplotlib.pyplot as plt
+import random as rn
+from datetime import datetime
+
+
 
 def copy_pictures(directory, worker_index, worker_count, binary_classification_mode, debug_mode):
     print("Setting up training data...")
@@ -151,21 +158,32 @@ def check_if_already_split(copy_path, single_classification_mode):
 
             
 def append_list_as_row(file_name, list_of_elem):
-    # Open file in append mode
-    if(not os.path.exists(file_name)):
-        with open(file_name, 'a+', newline='') as write_obj:
-            # Create a writer object from csv module
-            csv_writer = writer(write_obj, delimiter=';')
-            # Add contents of list as last row in the csv file
-            csv_writer.writerow(['NUMBER_OF_WORKERS', 'EPOCHES', 'BATCH_SIZE_PER_WORKER', 'SEED', 'USE_GPU', 'ACCURACY', 'LOSS', 'VAL_ACCURACY', 'VAL_LOSS', 'TOTAL_TIME', 'SCORE'])
+    tmp = 0
+    while(True):
+        try:
+            # Open file in append mode
+            with open(file_name, 'a', newline='') as write_obj:
+                for e in localize_floats(list_of_elem):
+                    if e == '\n':
+                        write_obj.write('\n')
+                    else:
+                        write_obj.write(str(e) + ';')
+                # # Create a writer object from csv module
+                # csv_writer = writer(write_obj, delimiter=';')
+                # # Add contents of list as last row in the csv file
+                # csv_writer.writerow(localize_floats(list_of_elem))
+            return
+        except Exception as ex:
+            if(tmp > 3):
+                raise Exception('Report Error file blocked...', ex)
+            sleep(1)
+            tmp+=1
 
-    # Open file in append mode
-    with open(file_name, 'a+', newline='') as write_obj:
-        # Create a writer object from csv module
-        csv_writer = writer(write_obj, delimiter=';')
-        # Add contents of list as last row in the csv file
-        csv_writer.writerow(list_of_elem)
-        
+def localize_floats(row):
+    return [
+        str(el).replace('.', ',') if isinstance(el, float) else el 
+        for el in row
+    ]
 
 def time_convert(sec):
     mins = sec // 60
@@ -174,5 +192,36 @@ def time_convert(sec):
     mins = mins % 60
     return "{0}:{1}:{2}".format(int(hours), int(mins), int(sec))
 
-def report(number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, accuracy, loss, val_accuracy, val_loss, total_time, score):
-    append_list_as_row('stats.csv', [number_of_workers, epoches, batch_size_per_worker, seed, use_gpu, round(accuracy, 2), round(loss,2), round(val_accuracy,2), round(val_loss,2), total_time, round(score,2)])
+def report(values):
+    append_list_as_row('stats.csv', values)
+
+def show_plot(history, epochs, client_id):
+    #visualize training results
+    acc = history['accuracy']
+    val_acc = history['val_accuracy']
+
+    loss = history['loss']
+    val_loss = history['val_loss']
+
+    epochs_range = range(epochs)
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_range, acc, label='Training Accuracy')
+    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+    plt.legend(loc='lower right')
+    plt.title('Training and Validation Accuracy')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_range, loss, label='Training Loss')
+    plt.plot(epochs_range, val_loss, label='Validation Loss')
+    plt.legend(loc='upper right')
+    plt.title('Training and Validation Loss')
+    now = datetime.now().strftime("%H.%M.%S")
+    graph = f"results\\{client_id}_{now}.png"
+    mng = plt.get_current_fig_manager()
+    mng.full_screen_toggle()
+    plt.savefig(graph, dpi=600)
+    plt.close()
+    return graph
+    # plt.show()

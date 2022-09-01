@@ -1,5 +1,6 @@
 import argparse
 import configparser
+from unittest import case
 # Parameters
 parser = argparse.ArgumentParser(description='Client for tensorflow distributed training')
 parser.add_argument("-i", "--id", help="The id of the client", type=int, required=True)
@@ -30,16 +31,16 @@ class Client():
         self.client_count = (int)(config["CLIENT"]["TOTAL_CLIENTS"])
         self.batch_size = (int)(config["CLIENT"]["BATCH_SIZE"])
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
-        self.shuffle_data_mode = config["CLIENT"]["SHUFFLE_DATA_MODE"]
-        self.single_classification_mode = config.getboolean("CLIENT","SINGLE_CLASSIFICATION_MODE")
+        self.shuffle_data_mode = config.getboolean("CLIENT","SHUFFLE_DATA_MODE")
+        self.binary_classification_mode = config.getboolean("CLIENT","ONE_VS_REST")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
         self.save_checkpoint = config.getboolean("CLIENT","SAVE_CHECKPOINT")
         self.load_checkpoint = config.getboolean("CLIENT","LOAD_CHECKPOINT")
         self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.single_classification_mode, self.debug_mode)
+        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.binary_classification_mode, self.debug_mode)
 
     def start_dist_training(self):
-        if(self.single_classification_mode):
+        if(self.binary_classification_mode):
             self.train_binary()
         else:
             self.train_multi_class()
@@ -50,7 +51,7 @@ class Client():
 
     def train_multi_class(self):
         best_accuracy = 0.0
-        validation = None
+        history = {'loss': [], 'accuracy': [], 'val_loss': [], 'val_accuracy': []}
         classifier = Flowerclassifier(self.client_id, self.client_count, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
 
         start_time = time.time()
@@ -58,11 +59,13 @@ class Client():
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
             if(self.shuffle_data_mode):
-                validation = classifier.train_epoch_in_shuffle_mode(inner_epoch=1, current_epoch=i)
+                hist = classifier.train_epoch_in_shuffle_mode(inner_epoch=1, current_epoch=i)
             else:
-                validation = classifier.train_epoch(inner_epoch=1)
-            new_accuracy = validation.history['accuracy'][0]
-            print(validation.history)
+                hist = classifier.train_epoch(inner_epoch=1)
+
+            history = self.updateHistory(hist, history)
+            new_accuracy = hist.history['accuracy'][0]
+            print(hist.history)
             
             if new_accuracy > best_accuracy or self.send_weights_without_improvement:
                 print(f" -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
@@ -81,15 +84,31 @@ class Client():
             print()
 
         print(classifier.model.history.history)
-        classifier.classify_single_picture()
-        #classifier.show_plot(validation, self.epochs)
+        score = classifier.calculate_score()
 
         # report
         end_time = time.time()
         time_lapsed = end_time - start_time
-        if(self.client_id == 1):
-            util.report(number_of_workers=self.client_count, epoches=self.epochs, batch_size_per_worker=classifier.batch_size, seed=self.seed, use_gpu=self.use_gpu, accuracy=validation.history['accuracy'][0],loss=validation.history['loss'][0], val_accuracy=validation.history['val_accuracy'][0], val_loss=validation.history['val_loss'][0], total_time=util.time_convert(time_lapsed))
+        sleep((self.client_id - 1) * 4)
+        graph_path = util.show_plot(history, self.epochs, self.client_id)
+        self.report(time_lapsed, classifier, hist, score, graph_path)
 
+        
+
+    def report(self, time_lapsed, classifier, hist, score, graph_path):
+        base_infos = [self.client_count, self.epochs, classifier.batch_size, self.binary_classification_mode,self.shuffle_data_mode, self.send_weights_without_improvement, self.seed, self.use_gpu, util.time_convert(time_lapsed), round(score, 2)]
+        training_stats = [round(hist.history['accuracy'][0], 2), round(hist.history['loss'][0], 2), round(hist.history['val_accuracy'][0], 2), round(hist.history['val_loss'][0], 2), graph_path]
+
+        if(self.client_id == 1):
+            util.report(base_infos + training_stats)
+            return
+        else:
+            sleep(self.client_id * 3)
+            util.report(training_stats)
+        if(self.client_id == self.client_count):
+            sleep(self.client_id * 2)
+            util.report(['\n'])
+            return
 
     def send_skip(self, old_weights):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -142,7 +161,12 @@ class Client():
             print("Recieved new weights! First weight after merging:", new_weights[0][0][0][0][0])
             return new_weights
 
-
+    def updateHistory(self, hist, history):
+        history['loss'].append(hist.history['loss'][0])
+        history['accuracy'].append(hist.history['accuracy'][0])
+        history['val_loss'].append(hist.history['val_loss'][0])
+        history['val_accuracy'].append(hist.history['val_accuracy'][0])
+        return history
 
 if __name__ == "__main__":
     client = Client()    

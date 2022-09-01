@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import random as rn
@@ -27,11 +26,12 @@ class Flowerclassifier():
     self.load_checkpoint = load_checkpoint
     self.callbacks_list = None
     self.model = self.generate_model()
+    self.data = []
     
     if(shuffle_data_mode):
       self.data = self.get_datasets_in_shuffle_mode(data_dir)
     else:
-      self.data = self.get_datasets(data_dir)
+      self.data.append(self.get_datasets(data_dir))
 
 
   def generate_model(self):
@@ -136,47 +136,30 @@ class Flowerclassifier():
     return history
 
 
-  def show_plot(self, history, epochs):
-    #visualize training results
-    acc = history.history['accuracy']
-    val_acc = history.history['val_accuracy']
+  def calculate_score(self):
+    # assign directory
+    directory = 'Flowers/'
+    scores = []
+    
+    # iterate over files in
+    # that directory
+    for root, dirs, files in os.walk(directory):
+        for filename in files:
+            img = keras.preprocessing.image.load_img(
+                os.path.join(root, filename), target_size=(self.img_height, self.img_width)
+            )
+            img_array = keras.preprocessing.image.img_to_array(img)
+            img_array = tf.expand_dims(img_array, 0) # Create a batch
 
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
+            predictions = self.model.predict(img_array)
+            score = tf.nn.softmax(predictions[0])
+            print(
+                "{} belongs most likely to {} with a {:.2f} percent confidence."
+                .format(os.path.join(root, filename), self.class_names[np.argmax(score)], 100 * np.max(score))
+            )
+            scores.append(np.max(score))
+    return sum(scores) / len(scores)
 
-    epochs_range = range(epochs)
-
-    plt.figure(figsize=(8, 8))
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs_range, acc, label='Training Accuracy')
-    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-    plt.legend(loc='lower right')
-    plt.title('Training and Validation Accuracy')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs_range, loss, label='Training Loss')
-    plt.plot(epochs_range, val_loss, label='Validation Loss')
-    plt.legend(loc='upper right')
-    plt.title('Training and Validation Loss')
-    plt.show()
-
-
-  def classify_single_picture(self):
-    img = keras.preprocessing.image.load_img(
-        'Flowers/myroses2.jpeg', target_size=(self.img_height, self.img_width)
-    )
-    img_array = keras.preprocessing.image.img_to_array(img)
-    img_array = tf.expand_dims(img_array, 0) # Create a batch
-
-    predictions = self.model.predict(img_array)
-    score = tf.nn.softmax(predictions[0])
-
-    print(predictions)
-    print(score)
-    print(
-        "This image most likely belongs to {} with a {:.2f} percent confidence."
-        .format(self.class_names[np.argmax(score)], 100 * np.max(score))
-    )
 
 
 

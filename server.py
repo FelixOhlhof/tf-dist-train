@@ -113,7 +113,6 @@ class Server():
     def __init__(self, hostname, port):
         self.hostname = hostname
         self.port = port
-        manager = multiprocessing.Manager()
         self.worker_weights_queue = multiprocessing.Queue(WORKERS_COUNT)
         self.new_weights = multiprocessing.Queue()
 
