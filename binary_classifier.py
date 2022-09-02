@@ -11,7 +11,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.metrics import roc_curve, auc
 
-class Flowerclassifier():
+class BinaryClassifier():
   def __init__(self, data_dir, seed):
     #define preprocessing parameters
     rn.seed(1254)
@@ -80,7 +80,7 @@ class Flowerclassifier():
     train_ds = train_datagen.flow_from_directory(
             train_dir,  # This is the source directory for training images
             classes = train_classes,
-            target_size=(self.img_height, self.img_width),  # All images will be resized to 200x200
+            target_size=(self.img_height, self.img_width),  # All images will be resized
             batch_size=120,
             # Use binary labels
             class_mode='binary')
@@ -89,7 +89,7 @@ class Flowerclassifier():
     val_ds = validation_datagen.flow_from_directory(
             test_dir,  # This is the source directory for training images
             classes = test_classes,
-            target_size=(self.img_height, self.img_width),  # All images will be resized to 200x200
+            target_size=(self.img_height, self.img_width),  # All images will be resized
             batch_size=19,
             # Use binary labels
             class_mode='binary',
@@ -103,7 +103,7 @@ class Flowerclassifier():
       self.train_ds,
       validation_data=self.val_ds,
       epochs=epochs,
-      callbacks= None
+      callbacks=None
     )
 
     #ROC AUC
@@ -125,3 +125,28 @@ class Flowerclassifier():
     plt.show()
 
     return history
+
+  
+def calculate_scores(self):
+    # assign directory
+    directory = 'Flowers/'
+    scores = []
+    
+    # iterate over files in
+    # that directory
+    for root, dirs, files in os.walk(directory):
+        for filename in files:
+            img = keras.preprocessing.image.load_img(
+                os.path.join(root, filename), target_size=(self.img_height, self.img_width)
+            )
+            img_array = keras.preprocessing.image.img_to_array(img)
+            img_array = tf.expand_dims(img_array, 0) # Create a batch
+
+            predictions = self.model.predict(img_array)
+            score = tf.nn.softmax(predictions[0])
+            print(
+                "{} belongs most likely to {} with a {:.2f} percent confidence."
+                .format(os.path.join(root, filename), self.class_names[np.argmax(score)], 100 * np.max(score))
+            )
+            scores.append(np.max(score))
+    return scores

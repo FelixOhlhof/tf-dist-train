@@ -12,8 +12,8 @@ from time import sleep
 import pickle, sys, os
 import socket, util
 import time
-from flowerclassifier import Flowerclassifier
-from binary_flowerclassifier import Flowerclassifier as BinaryClassifier
+from classifier import Classifier
+from binary_classifier import BinaryClassifier as BinaryClassifier
 from http import client
 from pathlib import Path
 
@@ -32,27 +32,34 @@ class Client():
         self.batch_size = (int)(config["CLIENT"]["BATCH_SIZE"])
         self.dataset_name = config["CLIENT"]["DATASET_NAME"]
         self.shuffle_data_mode = config.getboolean("CLIENT","SHUFFLE_DATA_MODE")
-        self.binary_classification_mode = config.getboolean("CLIENT","ONE_VS_REST")
+        self.one_vs_rest = config.getboolean("CLIENT","ONE_VS_REST")
+        self.one_vs_one = config.getboolean("CLIENT","ONE_VS_ONE")
         self.send_weights_without_improvement = config.getboolean("CLIENT","SEND_WEIGHTS_WITHOUT_IMPROVEMENT")
         self.save_checkpoint = config.getboolean("CLIENT","SAVE_CHECKPOINT")
         self.load_checkpoint = config.getboolean("CLIENT","LOAD_CHECKPOINT")
         self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.binary_classification_mode, self.debug_mode)
+        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.one_vs_rest, self.one_vs_one, self.debug_mode)
 
     def start_dist_training(self):
-        if(self.binary_classification_mode):
-            self.train_binary()
+        if(self.one_vs_rest):
+            self.train_one_vs_rest()
+        elif(self.one_vs_rest):
+            self.train_one_vs_one()
         else:
             self.train_multi_class()
         
-    def train_binary(self):
+    def train_one_vs_rest(self):
         classifier = BinaryClassifier(self.data_dir, self.seed)
         classifier.train_epoch(self.epochs)
+
+    def train_one_vs_one(self):
+        # TODO:impl
+        pass
 
     def train_multi_class(self):
         best_accuracy = 0.0
         history = {'loss': [], 'accuracy': [], 'val_loss': [], 'val_accuracy': []}
-        classifier = Flowerclassifier(self.client_id, self.client_count, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
+        classifier = Classifier(self.client_id, self.client_count, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
 
         start_time = time.time()
 
@@ -90,13 +97,13 @@ class Client():
         end_time = time.time()
         time_lapsed = end_time - start_time
         sleep((self.client_id - 1) * 4)
-        graph_path = util.show_plot(history, self.epochs, self.client_id)
+        graph_path = util.save_validation_loss_plot(history, self.epochs, self.client_id)
         self.report(time_lapsed, classifier, hist, score, graph_path)
 
         
 
     def report(self, time_lapsed, classifier, hist, score, graph_path):
-        base_infos = [self.client_count, self.epochs, classifier.batch_size, self.binary_classification_mode,self.shuffle_data_mode, self.send_weights_without_improvement, self.seed, self.use_gpu, util.time_convert(time_lapsed), round(score, 2)]
+        base_infos = [self.client_count, self.epochs, classifier.batch_size, self.one_vs_rest,self.shuffle_data_mode, self.send_weights_without_improvement, self.seed, self.use_gpu, util.time_convert(time_lapsed), round(score, 2)]
         training_stats = [round(hist.history['accuracy'][0], 2), round(hist.history['loss'][0], 2), round(hist.history['val_accuracy'][0], 2), round(hist.history['val_loss'][0], 2), graph_path]
 
         if(self.client_id == 1):

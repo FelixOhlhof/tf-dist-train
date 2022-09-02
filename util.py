@@ -13,7 +13,7 @@ from datetime import datetime
 
 
 
-def copy_pictures(directory, worker_index, worker_count, binary_classification_mode, debug_mode):
+def copy_pictures(directory, worker_index, worker_count, one_vs_rest, one_vs_one, debug_mode):
     print("Setting up training data...")
     classes = []
     copy_path = directory[0:directory.rindex('\\')] + "\{}".format(worker_index)
@@ -45,8 +45,19 @@ def copy_pictures(directory, worker_index, worker_count, binary_classification_m
         if not os.path.isfile(f):
             classes.append(class_name)
 
-    if(binary_classification_mode):
-        #assign every worker one class
+    if(one_vs_rest):
+        prep_data_one_vs_rest(directory, worker_index, worker_count, classes, copy_path)
+    elif(one_vs_one):
+        #TODO impl
+        pass
+    else:
+        prep_data_normal(directory, worker_index, worker_count, classes, copy_path)
+
+    return copy_path
+
+
+def prep_data_one_vs_rest(directory, worker_index, worker_count, classes, copy_path):
+    #assign every worker one class
         if(worker_count > len(classes)):
             raise "Number of clients can not exceed number of classes (single_classification_mode=true)"
 
@@ -110,11 +121,8 @@ def copy_pictures(directory, worker_index, worker_count, binary_classification_m
                             shutil.copy(src_fpath, dest_fpath)
                             pass
 
-
-        # shutil.copytree(directory + "\{}".format(classes[worker_index - 1]), copy_path + "\\train\{}".format(classes[worker_index - 1]))
-        # shutil.copytree(directory, copy_path + "\\test")
-    else:
-        #split every class in even parts
+def prep_data_normal(directory, worker_index, worker_count, classes, copy_path):
+    #split every class in even parts
         for class_name in classes:
             count = 0
 
@@ -145,7 +153,6 @@ def copy_pictures(directory, worker_index, worker_count, binary_classification_m
                         shutil.copy(src_fpath, dest_fpath)
                         pass
 
-    return copy_path
 
 def check_if_already_split(copy_path, single_classification_mode):
     if(os.path.isdir(copy_path)):
@@ -195,7 +202,7 @@ def time_convert(sec):
 def report(values):
     append_list_as_row('stats.csv', values)
 
-def show_plot(history, epochs, client_id):
+def save_validation_loss_plot(history, epochs, client_id):
     #visualize training results
     acc = history['accuracy']
     val_acc = history['val_accuracy']
@@ -225,3 +232,6 @@ def show_plot(history, epochs, client_id):
     plt.close()
     return graph
     # plt.show()
+
+def save_roc_curve(history, epochs, client_id):
+    pass
