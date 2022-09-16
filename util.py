@@ -11,8 +11,6 @@ import matplotlib.pyplot as plt
 import random as rn
 from datetime import datetime
 
-
-
 def copy_pictures(directory, worker_index, worker_count, one_vs_rest, one_vs_one, debug_mode):
     print("Setting up training data...")
     classes = []
@@ -48,8 +46,9 @@ def copy_pictures(directory, worker_index, worker_count, one_vs_rest, one_vs_one
     if(one_vs_rest):
         prep_data_one_vs_rest(directory, worker_index, worker_count, classes, copy_path)
     elif(one_vs_one):
-        #TODO impl
-        pass
+        ###DEBUG###
+        return directory[0:directory.rindex('\\')] + "\OvO\{}".format(worker_index)
+        prep_data_one_vs_one(directory, worker_index, worker_count, classes, copy_path)
     else:
         prep_data_normal(directory, worker_index, worker_count, classes, copy_path)
 
@@ -58,68 +57,134 @@ def copy_pictures(directory, worker_index, worker_count, one_vs_rest, one_vs_one
 
 def prep_data_one_vs_rest(directory, worker_index, worker_count, classes, copy_path):
     #assign every worker one class
-        if(worker_count > len(classes)):
-            raise "Number of clients can not exceed number of classes (single_classification_mode=true)"
+    if(worker_count > len(classes)):
+        raise "Number of clients can not exceed number of classes (ONE_VS_REST=true)"
 
 
-        #split every class in even parts
-        for class_name in classes:
-            count = 0
+    #split every class in even parts
+    for class_name in classes:
+        count = 0
 
-            #count images in dir
-            for picture in os.listdir(directory + "\{}".format(class_name)):
-                f = os.path.join(f"{directory}\\{class_name}", picture)
-                # checking if it is a file
-                if os.path.isfile(f):
-                    count += 1
+        #count images in dir
+        for picture in os.listdir(directory + "\{}".format(class_name)):
+            f = os.path.join(f"{directory}\\{class_name}", picture)
+            # checking if it is a file
+            if os.path.isfile(f):
+                count += 1
 
-            start_index = 0
-            end_index = (int)(count * 0.8)
-            count = 0
+        start_index = 0
+        end_index = (int)(count * 0.9)
+        count = 0
 
-            for picture in os.listdir(directory + "\{}".format(class_name)):
-                f = os.path.join(f"{directory}\\{class_name}", picture)
-                # checking if it is a file
-                if os.path.isfile(f):
-                    count += 1
-                if(class_name != classes[worker_index - 1]):
-                    if (count not in range(start_index, end_index)):
-                        src_fpath = f
-                        dest_fpath = f"{copy_path}\\test\\not_{classes[worker_index - 1]}\\{picture}"
-                        try:
-                            shutil.copy(src_fpath, dest_fpath)
-                        except IOError as io_err:
-                            os.makedirs(os.path.dirname(dest_fpath))
-                            shutil.copy(src_fpath, dest_fpath)
-                            pass
-                    else:
-                        src_fpath = f
-                        dest_fpath = f"{copy_path}\\train\\not_{classes[worker_index - 1]}\\{picture}"
-                        try:
-                            shutil.copy(src_fpath, dest_fpath)
-                        except IOError as io_err:
-                            os.makedirs(os.path.dirname(dest_fpath))
-                            shutil.copy(src_fpath, dest_fpath)
-                            pass
+        for picture in os.listdir(directory + "\{}".format(class_name)):
+            f = os.path.join(f"{directory}\\{class_name}", picture)
+            # checking if it is a file
+            if os.path.isfile(f):
+                count += 1
+            if(class_name != classes[worker_index - 1]):
+                if (count not in range(start_index, end_index)):
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\test\\{classes[worker_index - 1]}_not\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
                 else:
-                    if (count in range(start_index, end_index)):
-                        src_fpath = f
-                        dest_fpath = f"{copy_path}\\train\\{class_name}\\{picture}"
-                        try:
-                            shutil.copy(src_fpath, dest_fpath)
-                        except IOError as io_err:
-                            os.makedirs(os.path.dirname(dest_fpath))
-                            shutil.copy(src_fpath, dest_fpath)
-                            pass
-                    else:
-                        src_fpath = f
-                        dest_fpath = f"{copy_path}\\test\\{class_name}\\{picture}"
-                        try:
-                            shutil.copy(src_fpath, dest_fpath)
-                        except IOError as io_err:
-                            os.makedirs(os.path.dirname(dest_fpath))
-                            shutil.copy(src_fpath, dest_fpath)
-                            pass
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\train\\{classes[worker_index - 1]}_not\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+            else:
+                if (count in range(start_index, end_index)):
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\train\\{class_name}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+                else:
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\test\\{class_name}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+
+
+def prep_data_one_vs_one(directory, worker_index, worker_count, classes, copy_path):
+    #assign every worker one class
+    exp_clients = (len(classes) * (len(classes) - 1)) / 2
+    if(worker_count != exp_clients):
+        raise f"Number of clients must be {exp_clients} (ONE_VS_ONE=true)"
+
+    #split every class in even parts
+    for class_name in classes:
+        count = 0
+
+        #count images in dir
+        for picture in os.listdir(directory + "\{}".format(class_name)):
+            f = os.path.join(f"{directory}\\{class_name}", picture)
+            # checking if it is a file
+            if os.path.isfile(f):
+                count += 1
+
+        start_index = 0
+        end_index = (int)(count * 0.9)
+        count = 0
+
+        for picture in os.listdir(directory + "\{}".format(class_name)):
+            f = os.path.join(f"{directory}\\{class_name}", picture)
+            # checking if it is a file
+            if os.path.isfile(f):
+                count += 1
+            if(class_name != classes[worker_index - 1]):
+                if (count not in range(start_index, end_index)):
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\test\\{classes[worker_index - 1]}_not\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+                else:
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\train\\{classes[worker_index - 1]}_not\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+            else:
+                if (count in range(start_index, end_index)):
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\train\\{class_name}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
+                else:
+                    src_fpath = f
+                    dest_fpath = f"{copy_path}\\test\\{class_name}\\{picture}"
+                    try:
+                        shutil.copy(src_fpath, dest_fpath)
+                    except IOError as io_err:
+                        os.makedirs(os.path.dirname(dest_fpath))
+                        shutil.copy(src_fpath, dest_fpath)
+                        pass
 
 def prep_data_normal(directory, worker_index, worker_count, classes, copy_path):
     #split every class in even parts
@@ -173,6 +238,8 @@ def append_list_as_row(file_name, list_of_elem):
                 for e in localize_floats(list_of_elem):
                     if e == '\n':
                         write_obj.write('\n')
+                    elif isinstance(e, list):
+                        write_obj.write(';'.join([str(n) for n in localize_floats(e)]) + ';')
                     else:
                         write_obj.write(str(e) + ';')
                 # # Create a writer object from csv module
@@ -202,7 +269,7 @@ def time_convert(sec):
 def report(values):
     append_list_as_row('stats.csv', values)
 
-def save_validation_loss_plot(history, epochs, client_id):
+def save_validation_loss_plot(history, epochs, test_id, client_id, strategy):
     #visualize training results
     acc = history['accuracy']
     val_acc = history['val_accuracy']
@@ -225,13 +292,10 @@ def save_validation_loss_plot(history, epochs, client_id):
     plt.legend(loc='upper right')
     plt.title('Training and Validation Loss')
     now = datetime.now().strftime("%H.%M.%S")
-    graph = f"results\\{client_id}_{now}.png"
+    graph = f"results\\{strategy}\\graphs\\Test_{test_id}_Worker_{client_id}.png"
     mng = plt.get_current_fig_manager()
     mng.full_screen_toggle()
     plt.savefig(graph, dpi=600)
     plt.close()
     return graph
     # plt.show()
-
-def save_roc_curve(history, epochs, client_id):
-    pass

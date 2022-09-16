@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import random as rn
 import os
-import re
+import re, time
 
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -159,3 +159,32 @@ class Classifier():
             )
             scores.append(np.max(score))
     return sum(scores) / len(scores)
+
+
+  def evaluate(self, train_path, val_path, client_id):
+    if(client_id != 1):
+      return 0, 0, 0, 0, 0
+
+    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+      train_path,
+      validation_split=None,
+      subset=None,
+      seed=123,
+      image_size=(self.img_height, self.img_width),
+      batch_size=self.batch_size)
+
+    val_ds = tf.keras.preprocessing.image_dataset_from_directory(
+      val_path,
+      validation_split=None,
+      subset=None,
+      seed=123,
+      image_size=(self.img_height, self.img_width),
+      batch_size=self.batch_size)
+
+    eval_train = self.model.evaluate(train_ds)
+    start_time = time.time()
+    eval_test = self.model.evaluate(val_ds) # measure time needed for evaluation validation ds
+    end_time = time.time()
+    time_lapsed = end_time - start_time
+    return eval_train[1], eval_train[0], eval_test[1], eval_test[0], time_lapsed
+

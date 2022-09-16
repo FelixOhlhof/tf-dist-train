@@ -11,9 +11,10 @@ from struct import pack
 from time import sleep
 import pickle, sys, os
 import socket, util
-import time
+import time, datetime
+import sqlite3
 from classifier import Classifier
-from binary_classifier import BinaryClassifier as BinaryClassifier
+from binary_classifier import BinaryClassifier
 from http import client
 from pathlib import Path
 
@@ -38,19 +39,35 @@ class Client():
         self.save_checkpoint = config.getboolean("CLIENT","SAVE_CHECKPOINT")
         self.load_checkpoint = config.getboolean("CLIENT","LOAD_CHECKPOINT")
         self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
+        self.db = r"results\tf_dist_train_results.db"
         self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.one_vs_rest, self.one_vs_one, self.debug_mode)
+        self.test_id = self.get_test_id()
+        self.strategy = self.get_strategy()
 
     def start_dist_training(self):
         if(self.one_vs_rest):
             self.train_one_vs_rest()
-        elif(self.one_vs_rest):
-            self.train_one_vs_one()
+        elif(self.one_vs_one):
+            self.train_one_vs_rest()
         else:
             self.train_multi_class()
         
     def train_one_vs_rest(self):
-        classifier = BinaryClassifier(self.data_dir, self.seed)
-        classifier.train_epoch(self.epochs)
+        classifier = BinaryClassifier(self.data_dir, self.seed, self.client_id)
+
+        start_time = time.time()
+        history = classifier.train_epoch(self.epochs)
+
+        # report
+        end_time = time.time()
+        time_lapsed = end_time - start_time
+        print(classifier.model.history.history)
+        model_path = classifier.save_model(self.test_id, self.client_id, self.strategy)
+        roc_curve = classifier.save_roc_curve(self.test_id, self.client_id, self.strategy)
+        val_loss_curve = util.save_validation_loss_plot(history.history, self.epochs, self.test_id, self.client_id, self.strategy)
+        self.report(classifier, time_lapsed, [roc_curve, val_loss_curve])
+        self.report_model_db(model_path, classifier.class_names[0], classifier.class_names[1])
+
 
     def train_one_vs_one(self):
         # TODO:impl
@@ -91,31 +108,70 @@ class Client():
             print()
 
         print(classifier.model.history.history)
-        score = classifier.calculate_score()
+        #score = classifier.calculate_score() not in use anymore
 
         # report
         end_time = time.time()
         time_lapsed = end_time - start_time
-        sleep((self.client_id - 1) * 4)
-        graph_path = util.save_validation_loss_plot(history, self.epochs, self.client_id)
-        self.report(time_lapsed, classifier, hist, score, graph_path)
+        graph_path = util.save_validation_loss_plot(history, self.epochs, self.test_id, self.client_id, self.strategy)
+        accuracy, loss, val_accuracy, val_loss, evaluation_time = classifier.evaluate(r"C:\Users\felix\.keras\datasets\flower_photos", r"C:\Users\felix\.keras\datasets\OvR\test", self.client_id)
 
-        
+        self.report(classifier, time_lapsed, graph_path, evaluation_time, accuracy, loss, val_accuracy, val_loss)
 
-    def report(self, time_lapsed, classifier, hist, score, graph_path):
-        base_infos = [self.client_count, self.epochs, classifier.batch_size, self.one_vs_rest,self.shuffle_data_mode, self.send_weights_without_improvement, self.seed, self.use_gpu, util.time_convert(time_lapsed), round(score, 2)]
-        training_stats = [round(hist.history['accuracy'][0], 2), round(hist.history['loss'][0], 2), round(hist.history['val_accuracy'][0], 2), round(hist.history['val_loss'][0], 2), graph_path]
-
+    def report(self, classifier, time_lapsed, graph_path, evaluation_time = 0, accuracy = 0, loss = 0, val_accuracy = 0, val_loss = 0):
         if(self.client_id == 1):
-            util.report(base_infos + training_stats)
-            return
+            self.report_results_db(classifier, time_lapsed, evaluation_time, accuracy, loss, val_accuracy, val_loss)
+            
+        while(self.get_test_id() == self.test_id): # checking if worker1 already inserted the result
+            print("Waiting for worker1 to insert result into db...")
+            sleep(0.5)
+
+        if isinstance(graph_path, list):
+            for g in graph_path:
+                self.report_graph_db(g)
         else:
-            sleep(self.client_id * 3)
-            util.report(training_stats)
-        if(self.client_id == self.client_count):
-            sleep(self.client_id * 2)
-            util.report(['\n'])
-            return
+            self.report_graph_db(graph_path)
+
+
+    def report_results_db(self, classifier, time_lapsed, evaluation_time, accuracy, loss, val_accuracy, val_loss):
+        con = sqlite3.connect(self.db)
+        cur = con.cursor()       
+
+        cur.execute(f"INSERT INTO Results (TEST_ID, NUMBER_OF_WORKERS, EPOCHES, BATCH_SIZE_PER_WORKER, STRATEGY, SHUFFLE_DATA, SEND_WEIGHTS_WITHOUT_IMPROVEMENT, USE_GPU, SEED, TOTAL_TRAINING_TIME, EVALUATION_TIME, TIMESTAMP, ACCURACY, LOSS, VAL_ACCURACY, VAL_LOSS) VALUES ({self.test_id}, {self.client_count}, {self.epochs}, {classifier.batch_size}, '{self.strategy}', {(int)(self.shuffle_data_mode)}, {(int)(self.send_weights_without_improvement)}, {(int)(self.use_gpu)}, '{self.seed}', '{util.time_convert(time_lapsed)}', {round(evaluation_time, 2)}, '{datetime.datetime.now()}', {round(accuracy, 4)}, {round(loss, 4)}, {round(val_accuracy, 4)}, {round(val_loss, 4)});")
+        con.commit()
+        con.close()
+        print("Inserted result into db")
+
+    def report_graph_db(self, graph_path):
+        con = sqlite3.connect(self.db)
+        cur = con.cursor()    
+        cur.execute(f"INSERT INTO Graphs (TEST_ID, WORKER_ID, PATH) VALUES ({self.test_id}, {self.client_id}, '{graph_path}');")
+        con.commit()
+        con.close()
+        print("Inserted graph into db")
+
+    def report_model_db(self, model_path, class_1, class_2):
+        con = sqlite3.connect(self.db)
+        cur = con.cursor()    
+        cur.execute(f"INSERT INTO Models (TEST_ID, MODEL_PATH, STRATEGY, CLASS_1, CLASS_2, WORKER_ID) VALUES ({self.test_id}, '{model_path}', '{self.strategy}', '{class_1}', '{class_2}', {self.client_id});")
+        con.commit()
+        con.close()
+        print("Inserted model into db")
+
+    def get_strategy(self):
+        if(self.one_vs_one):
+            return "ONE_VS_ONE"
+        elif(self.one_vs_rest):
+            return "ONE_VS_REST"
+        else:
+            return "MULTI_CLASS"
+
+    def get_test_id(self):
+        con = sqlite3.connect(self.db)
+        cur = con.cursor()
+        test_id = cur.execute(f"SELECT Count(*) from Results;").fetchone()[0] + 1
+        con.close()
+        return test_id
 
     def send_skip(self, old_weights):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

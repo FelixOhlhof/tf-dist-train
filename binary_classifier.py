@@ -4,21 +4,28 @@ import numpy as np
 import random as rn
 import matplotlib.pyplot as plt
 import os
+from datetime import datetime
+from keras.preprocessing import image
 
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from sklearn.metrics import roc_curve, auc
+from PIL import Image
+import numpy as np
+from skimage import transform
 
 class BinaryClassifier():
-  def __init__(self, data_dir, seed):
+  def __init__(self, data_dir, seed, client_id):
     #define preprocessing parameters
     rn.seed(1254)
     tf.random.set_seed(seed)
     self.batch_size = 32
     self.img_height = 180
     self.img_width = 180
+    self.client_id = client_id
+    self.class_names = []
     self.model = self.generate_model()
     self.train_ds, self.val_ds = self.get_datasets(data_dir)
     
@@ -76,6 +83,8 @@ class BinaryClassifier():
     train_classes = [ f.name for f in os.scandir(train_dir) if f.is_dir() ]
     test_classes = [ f.name for f in os.scandir(test_dir) if f.is_dir() ]
 
+    self.class_names = train_classes
+
     # Flow training images in batches of 120 using train_datagen generator
     train_ds = train_datagen.flow_from_directory(
             train_dir,  # This is the source directory for training images
@@ -97,7 +106,6 @@ class BinaryClassifier():
 
     return (train_ds, val_ds)
 
-
   def train_epoch(self, epochs):
     history = self.model.fit(
       self.train_ds,
@@ -105,48 +113,80 @@ class BinaryClassifier():
       epochs=epochs,
       callbacks=None
     )
-
-    #ROC AUC
     self.model.evaluate(self.val_ds)
-    preds = self.model.predict(self.val_ds, verbose=1)
-    fpr, tpr, _ = roc_curve(self.val_ds.classes, preds)
-    roc_auc = auc(fpr, tpr)
-    plt.figure()
-    lw = 2
-    plt.plot(fpr, tpr, color='darkorange',
-    lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
-    plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic')
-    plt.legend(loc="lower right")
-    plt.show()
-
     return history
 
-  
-def calculate_scores(self):
-    # assign directory
-    directory = 'Flowers/'
-    scores = []
-    
-    # iterate over files in
-    # that directory
-    for root, dirs, files in os.walk(directory):
-        for filename in files:
-            img = keras.preprocessing.image.load_img(
-                os.path.join(root, filename), target_size=(self.img_height, self.img_width)
-            )
-            img_array = keras.preprocessing.image.img_to_array(img)
-            img_array = tf.expand_dims(img_array, 0) # Create a batch
+  def save_roc_curve(self, test_id, client_id, strategy):
+      #ROC AUC
+      self.model.evaluate(self.val_ds)
+      preds = self.model.predict(self.val_ds, verbose=1)
+      fpr, tpr, _ = roc_curve(self.val_ds.classes, preds)
+      roc_auc = auc(fpr, tpr)
+      plt.figure()
+      lw = 2
+      plt.plot(fpr, tpr, color='darkorange',
+      lw=lw, label='ROC curve (area = %0.2f)' % roc_auc)
+      plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+      plt.xlim([0.0, 1.0])
+      plt.ylim([0.0, 1.05])
+      plt.xlabel('False Positive Rate')
+      plt.ylabel('True Positive Rate')
+      plt.title('Receiver operating characteristic')
+      plt.legend(loc="lower right")
 
-            predictions = self.model.predict(img_array)
-            score = tf.nn.softmax(predictions[0])
-            print(
-                "{} belongs most likely to {} with a {:.2f} percent confidence."
-                .format(os.path.join(root, filename), self.class_names[np.argmax(score)], 100 * np.max(score))
-            )
-            scores.append(np.max(score))
-    return scores
+      now = datetime.now().strftime("%H.%M.%S")
+      graph = f"results\\{strategy}\\graphs\\Test_{test_id}_Worker_{client_id}_ROC.png"
+      mng = plt.get_current_fig_manager()
+      mng.full_screen_toggle()
+      plt.savefig(graph, dpi=600)
+      plt.close()
+      return graph
+      # plt.show()
+    
+  def calculate_scores(self):
+      # assign directory
+      directory = 'Flowers/'
+      scores = []
+      
+      # iterate over files in
+      # that directory
+      for root, dirs, files in os.walk(directory):
+          for filename in files:
+              # img = keras.preprocessing.image.load_img(
+              #     os.path.join(root, filename), target_size=(self.img_height, self.img_width)
+              # )
+              img = keras.preprocessing.image.load_img(
+                  r"C:\Users\felix\Desktop\1.png", target_size=(self.img_height, self.img_width)
+              )
+              img_array = keras.preprocessing.image.img_to_array(img)
+              img_array = np.expand_dims(img_array, axis=0) # Create a batch
+              predictions = self.model.predict(self.load_image(r"C:\Users\felix\Desktop\1.png"))
+              
+              score = tf.nn.softmax(predictions[0])
+              print(
+                  "{} belongs most likely to {} with a {:.2f} percent confidence."
+                  .format(os.path.join(root, filename), self.class_names[np.argmax(score)], 100 * np.max(score))
+              )
+              scores.append(round(np.max(score), 2))
+      return scores
+
+  def load_image(self, img_path, show=False):
+
+    img = keras.preprocessing.image.load_img(
+                  img_path, target_size=(self.img_height, self.img_width)
+              )
+    img_tensor = keras.preprocessing.image.img_to_array(img)                   # (height, width, channels)
+    img_tensor = np.expand_dims(img_tensor, axis=0)         # (1, height, width, channels), add a dimension because the model expects this shape: (batch_size, height, width, channels)
+    img_tensor /= 255.                                      # imshow expects values in the range [0, 1]
+
+    if show:
+        plt.imshow(img_tensor[0])                           
+        plt.axis('off')
+        plt.show()
+
+    return img_tensor
+
+  def save_model(self, test_id, client_id, strategy):
+    model_path = f"results\\{strategy}\\models\\Test_{test_id}_Worker_{client_id}.h5"
+    self.model.save(model_path)
+    return model_path
