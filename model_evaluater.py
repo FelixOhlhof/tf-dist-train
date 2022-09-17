@@ -231,7 +231,7 @@ if __name__ == "__main__":
     
     con = sqlite3.connect(db)
     cur = con.cursor()   
-    cur.execute(f"UPDATE Results SET VAL_ACCURACY = {round(val_accuracy, 4)}, VAL_LOSS = {round(val_loss, 4)}, EVALUATION_TIME = {round(evaluation_time, 2)}, ACCURACY = {round(accuracy, 4)}, LOSS = {round(loss, 4)} WHERE TEST_ID = {last_test_id}")
+    cur.execute(f"UPDATE Results SET VAL_ACCURACY = {round(val_accuracy, 4)}, VAL_LOSS = {round(float(val_loss), 4)}, EVALUATION_TIME = {round(evaluation_time, 2)}, ACCURACY = {round(accuracy, 4)}, LOSS = {round(float(loss), 4)} WHERE TEST_ID = {last_test_id}")
     con.commit()
     con.close()
     print(f"Updated result of Test {last_test_id}")

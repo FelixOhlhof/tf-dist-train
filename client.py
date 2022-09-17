@@ -25,7 +25,8 @@ class Client():
         if(not self.use_gpu):
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1' # nessesary for the seed
         self.seed = (int)(config["CLIENT"]["SEED"]) # get the seed
-        self.epochs=(int)(config["CLIENT"]["EPOCHES"]) # Number of epoches to be trained
+        self.epochs=(int)(config["CLIENT"]["EPOCHS"]) # Number of epoches to be trained
+        self.inner_epochs=(int)(config["CLIENT"]["INNER_EPOCHS"]) # Number of epoches to be trained
         self.hostname = config["SERVER"]["HOST"] # The server's hostname or IP address
         self.port = (int)(config["SERVER"]["PORT"]) # The port used by the server
         self.client_id = args.id # The ID of the worker/client
@@ -40,7 +41,8 @@ class Client():
         self.load_checkpoint = config.getboolean("CLIENT","LOAD_CHECKPOINT")
         self.debug_mode = config.getboolean("CLIENT","DEBUG_MODE")
         self.db = r"results\tf_dist_train_results.db"
-        self.data_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.one_vs_rest, self.one_vs_one, self.debug_mode)
+        self.train_dir = util.copy_pictures(f"{Path.home()}\\.keras\\datasets\\{self.dataset_name}", self.client_id, self.client_count, self.one_vs_rest, self.one_vs_one, self.debug_mode)
+        self.val_dir = config["CLIENT"]["VALIDATION_DATA_DIR"]
         self.test_id = self.get_test_id()
         self.strategy = self.get_strategy()
 
@@ -53,7 +55,7 @@ class Client():
             self.train_multi_class()
         
     def train_one_vs_rest(self):
-        classifier = BinaryClassifier(self.data_dir, self.seed, self.client_id)
+        classifier = BinaryClassifier(self.train_dir, self.seed, self.client_id)
 
         start_time = time.time()
         history = classifier.train_epoch(self.epochs)
@@ -76,16 +78,16 @@ class Client():
     def train_multi_class(self):
         best_accuracy = 0.0
         history = {'loss': [], 'accuracy': [], 'val_loss': [], 'val_accuracy': []}
-        classifier = Classifier(self.client_id, self.client_count, self.data_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
+        classifier = Classifier(self.client_id, self.client_count, self.train_dir, self.val_dir, self.seed, self.save_checkpoint, self.load_checkpoint, self.batch_size, self.shuffle_data_mode)
 
         start_time = time.time()
 
         for i in range(self.epochs):
             print(f"************* EPOCH {i+1} *************")
             if(self.shuffle_data_mode):
-                hist = classifier.train_epoch_in_shuffle_mode(inner_epoch=1, current_epoch=i)
+                hist = classifier.train_epoch_in_shuffle_mode(inner_epoch=self.inner_epochs, current_epoch=i)
             else:
-                hist = classifier.train_epoch(inner_epoch=1)
+                hist = classifier.train_epoch(inner_epoch=self.inner_epochs)
 
             history = self.updateHistory(hist, history)
             new_accuracy = hist.history['accuracy'][0]
@@ -114,7 +116,7 @@ class Client():
         end_time = time.time()
         time_lapsed = end_time - start_time
         graph_path = util.save_validation_loss_plot(history, self.epochs, self.test_id, self.client_id, self.strategy)
-        accuracy, loss, val_accuracy, val_loss, evaluation_time = classifier.evaluate(r"C:\Users\felix\.keras\datasets\flower_photos", r"C:\Users\felix\.keras\datasets\OvR\test", self.client_id)
+        accuracy, loss, val_accuracy, val_loss, evaluation_time = classifier.evaluate(self.client_id)
 
         self.report(classifier, time_lapsed, graph_path, evaluation_time, accuracy, loss, val_accuracy, val_loss)
 
@@ -137,7 +139,7 @@ class Client():
         con = sqlite3.connect(self.db)
         cur = con.cursor()       
 
-        cur.execute(f"INSERT INTO Results (TEST_ID, NUMBER_OF_WORKERS, EPOCHES, BATCH_SIZE_PER_WORKER, STRATEGY, SHUFFLE_DATA, SEND_WEIGHTS_WITHOUT_IMPROVEMENT, USE_GPU, SEED, TOTAL_TRAINING_TIME, EVALUATION_TIME, TIMESTAMP, ACCURACY, LOSS, VAL_ACCURACY, VAL_LOSS) VALUES ({self.test_id}, {self.client_count}, {self.epochs}, {classifier.batch_size}, '{self.strategy}', {(int)(self.shuffle_data_mode)}, {(int)(self.send_weights_without_improvement)}, {(int)(self.use_gpu)}, '{self.seed}', '{util.time_convert(time_lapsed)}', {round(evaluation_time, 2)}, '{datetime.datetime.now()}', {round(accuracy, 4)}, {round(loss, 4)}, {round(val_accuracy, 4)}, {round(val_loss, 4)});")
+        cur.execute(f"INSERT INTO Results (TEST_ID, NUMBER_OF_WORKERS, EPOCHS, INNER_EPOCHS, BATCH_SIZE_PER_WORKER, STRATEGY, SHUFFLE_DATA, SEND_WEIGHTS_WITHOUT_IMPROVEMENT, USE_GPU, SEED, TOTAL_TRAINING_TIME, EVALUATION_TIME, TIMESTAMP, ACCURACY, LOSS, VAL_ACCURACY, VAL_LOSS) VALUES ({self.test_id}, {self.client_count}, {self.epochs}, {self.inner_epochs}, {classifier.batch_size}, '{self.strategy}', {(int)(self.shuffle_data_mode)}, {(int)(self.send_weights_without_improvement)}, {(int)(self.use_gpu)}, '{self.seed}', '{util.time_convert(time_lapsed)}', {round(evaluation_time, 2)}, '{datetime.datetime.now()}', {round(accuracy, 4)}, {round(loss, 4)}, {round(val_accuracy, 4)}, {round(val_loss, 4)});")
         con.commit()
         con.close()
         print("Inserted result into db")

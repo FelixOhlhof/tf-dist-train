@@ -9,9 +9,9 @@ from tensorflow.keras import layers
 from tensorflow.keras.models import Sequential
 
 class Classifier():
-  def __init__(self, client_id, client_count, data_dir, seed, save_checkpoint, load_checkpoint, batch_size, shuffle_data_mode):
+  def __init__(self, client_id, client_count, train_dir, val_dir, seed, save_checkpoint, load_checkpoint, batch_size, shuffle_data_mode):
     #define preprocessing parameters
-    #np.random.seed(37)
+    np.random.seed(37)
     rn.seed(seed)
     tf.random.set_seed(seed)
     self.seed = seed
@@ -27,11 +27,13 @@ class Classifier():
     self.callbacks_list = None
     self.model = self.generate_model()
     self.data = []
+    self.train_dir = train_dir
+    self.val_dir = val_dir
     
     if(shuffle_data_mode):
-      self.data = self.get_datasets_in_shuffle_mode(data_dir)
+      self.data = self.get_datasets_in_shuffle_mode(train_dir)
     else:
-      self.data.append(self.get_datasets(data_dir))
+      self.data.append(self.get_datasets(train_dir))
 
 
   def generate_model(self):
@@ -79,29 +81,29 @@ class Classifier():
     return model
 
 
-  def get_datasets_in_shuffle_mode(self, data_dir):
+  def get_datasets_in_shuffle_mode(self, train_dir):
     data = []
 
     for i in range(1, self.client_count + 1):
-      data.append(self.get_datasets(re.sub(r".$", str(i), data_dir)))
+      data.append(self.get_datasets(re.sub(r".$", str(i), train_dir)))
 
     return data
 
 
-  def get_datasets(self, data_dir):
+  def get_datasets(self, train_dir):
     #load training data
     train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      data_dir,
-      validation_split=0.1,
-      subset="training",
+      train_dir,
+      validation_split=None,
+      subset=None,
       seed=123,
       image_size=(self.img_height, self.img_width),
       batch_size=self.batch_size)
 
     val_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      data_dir,
-      validation_split=0.1,
-      subset="validation",
+      self.val_dir,
+      validation_split=None,
+      subset=None,
       seed=123,
       image_size=(self.img_height, self.img_width),
       batch_size=self.batch_size)
@@ -161,29 +163,15 @@ class Classifier():
     return sum(scores) / len(scores)
 
 
-  def evaluate(self, train_path, val_path, client_id):
+  def evaluate(self, client_id):
     if(client_id != 1):
       return 0, 0, 0, 0, 0
 
-    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      train_path,
-      validation_split=None,
-      subset=None,
-      seed=123,
-      image_size=(self.img_height, self.img_width),
-      batch_size=self.batch_size)
+    ds = self.get_datasets(self.train_dir)
 
-    val_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      val_path,
-      validation_split=None,
-      subset=None,
-      seed=123,
-      image_size=(self.img_height, self.img_width),
-      batch_size=self.batch_size)
-
-    eval_train = self.model.evaluate(train_ds)
+    eval_train = self.model.evaluate(ds[0])
     start_time = time.time()
-    eval_test = self.model.evaluate(val_ds) # measure time needed for evaluation validation ds
+    eval_test = self.model.evaluate(ds[1]) # measure time needed for evaluation validation ds
     end_time = time.time()
     time_lapsed = end_time - start_time
     return eval_train[1], eval_train[0], eval_test[1], eval_test[0], time_lapsed

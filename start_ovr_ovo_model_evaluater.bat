@@ -1,0 +1,1 @@
+start cmd.exe /k python model_evaluater.py

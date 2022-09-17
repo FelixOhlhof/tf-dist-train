@@ -107,6 +107,7 @@ class BinaryClassifier():
     return (train_ds, val_ds)
 
   def train_epoch(self, epochs):
+    #callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=2)
     history = self.model.fit(
       self.train_ds,
       validation_data=self.val_ds,
