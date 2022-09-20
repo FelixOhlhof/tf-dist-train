@@ -1,1 +1,3 @@
 OVR=> ein schlechter klassifikator kann das Gesamtergebnis verschlechtern
+=> sobald nur ein Klassifikator schlecht trainiert ist, verschlechtert er das Gesamtergebnis immenz, da wenn er Werte um den Treshhold prognostiziert immer ein anderer Kallifikator gewinnen wird -> OvO kann das Risiko minimieren, da jede Klasse mehrmals vorkommt ab 3 
+ausblick: early stopping kann worker die schneller overfitten

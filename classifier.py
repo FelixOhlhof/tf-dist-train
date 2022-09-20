@@ -58,7 +58,11 @@ class Classifier():
     layers.MaxPooling2D(),
     layers.Conv2D(64, 3, padding='same', activation='relu'),
     layers.MaxPooling2D(),
-    layers.Dropout(0.2), #nachlesen, Frochte
+    layers.Conv2D(128, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+    layers.Conv2D(128, 3, padding='same', activation='relu'),
+    layers.MaxPooling2D(),
+    layers.Dropout(0.5),
     layers.Flatten(),
     layers.Dense(128, activation='relu'),
     layers.Dense(self.num_classes)
@@ -90,23 +94,41 @@ class Classifier():
     return data
 
 
-  def get_datasets(self, train_dir):
-    #load training data
-    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      train_dir,
-      validation_split=None,
-      subset=None,
-      seed=123,
-      image_size=(self.img_height, self.img_width),
-      batch_size=self.batch_size)
+  def get_datasets(self, train_dir, validation_dir = None):
+    if(validation_dir == None):
+      #load training data
+      train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        train_dir,
+        validation_split=0.1,
+        subset='training',
+        seed=123,
+        image_size=(self.img_height, self.img_width),
+        batch_size=self.batch_size)
 
-    val_ds = tf.keras.preprocessing.image_dataset_from_directory(
-      self.val_dir,
-      validation_split=None,
-      subset=None,
-      seed=123,
-      image_size=(self.img_height, self.img_width),
-      batch_size=self.batch_size)
+      val_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        train_dir,
+        validation_split=0.1,
+        subset='validation',
+        seed=123,
+        image_size=(self.img_height, self.img_width),
+        batch_size=self.batch_size)
+    else:
+      #load training data
+      train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        train_dir,
+        validation_split=None,
+        subset=None,
+        seed=123,
+        image_size=(self.img_height, self.img_width),
+        batch_size=self.batch_size)
+
+      val_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        validation_dir,
+        validation_split=None,
+        subset=None,
+        seed=123,
+        image_size=(self.img_height, self.img_width),
+        batch_size=self.batch_size)
 
     #find class names
     self.class_names = train_ds.class_names
@@ -167,7 +189,7 @@ class Classifier():
     if(client_id != 1):
       return 0, 0, 0, 0, 0
 
-    ds = self.get_datasets(self.train_dir)
+    ds = self.get_datasets(self.train_dir, self.val_dir)
 
     eval_train = self.model.evaluate(ds[0])
     start_time = time.time()

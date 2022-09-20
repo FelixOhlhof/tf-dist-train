@@ -93,17 +93,18 @@ class Client():
             new_accuracy = hist.history['accuracy'][0]
             print(hist.history)
             
-            if new_accuracy > best_accuracy or self.send_weights_without_improvement:
-                print(f" -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
-                # send weights and get new weights
-                updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
-            else:
-                # send skip to server
-                print(f"Accuracy did not improve -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
-                updated_weights = self.send_skip(old_weights=classifier.model.get_weights())
+            if(self.client_count != 1):
+                if new_accuracy > best_accuracy or self.send_weights_without_improvement:
+                    print(f" -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
+                    # send weights and get new weights
+                    updated_weights = self.retrieve_new_weights(old_weights=classifier.model.get_weights())
+                else:
+                    # send skip to server
+                    print(f"Accuracy did not improve -> best_accuracy: {best_accuracy} new_accuracy: {new_accuracy}")
+                    updated_weights = self.send_skip(old_weights=classifier.model.get_weights())
 
-            # set updated weights    
-            classifier.model.set_weights(updated_weights)
+                # set updated weights    
+                classifier.model.set_weights(updated_weights)
 
             if(new_accuracy > best_accuracy):
                 best_accuracy = new_accuracy
@@ -139,7 +140,7 @@ class Client():
         con = sqlite3.connect(self.db)
         cur = con.cursor()       
 
-        cur.execute(f"INSERT INTO Results (TEST_ID, NUMBER_OF_WORKERS, EPOCHS, INNER_EPOCHS, BATCH_SIZE_PER_WORKER, STRATEGY, SHUFFLE_DATA, SEND_WEIGHTS_WITHOUT_IMPROVEMENT, USE_GPU, SEED, TOTAL_TRAINING_TIME, EVALUATION_TIME, TIMESTAMP, ACCURACY, LOSS, VAL_ACCURACY, VAL_LOSS) VALUES ({self.test_id}, {self.client_count}, {self.epochs}, {self.inner_epochs}, {classifier.batch_size}, '{self.strategy}', {(int)(self.shuffle_data_mode)}, {(int)(self.send_weights_without_improvement)}, {(int)(self.use_gpu)}, '{self.seed}', '{util.time_convert(time_lapsed)}', {round(evaluation_time, 2)}, '{datetime.datetime.now()}', {round(accuracy, 4)}, {round(loss, 4)}, {round(val_accuracy, 4)}, {round(val_loss, 4)});")
+        cur.execute(f"INSERT INTO Results (TEST_ID, DATASET_NAME, NUMBER_OF_WORKERS, EPOCHS, INNER_EPOCHS, BATCH_SIZE_PER_WORKER, STRATEGY, SHUFFLE_DATA, SEND_WEIGHTS_WITHOUT_IMPROVEMENT, USE_GPU, SEED, TOTAL_TRAINING_TIME, EVALUATION_TIME, TIMESTAMP, ACCURACY, LOSS, VAL_ACCURACY, VAL_LOSS) VALUES ({self.test_id}, '{self.dataset_name}', {self.client_count}, {self.epochs}, {self.inner_epochs}, {classifier.batch_size}, '{self.strategy}', {(int)(self.shuffle_data_mode)}, {(int)(self.send_weights_without_improvement)}, {(int)(self.use_gpu)}, '{self.seed}', '{util.time_convert(time_lapsed)}', {round(evaluation_time, 2)}, '{datetime.datetime.now()}', {round(accuracy, 4)}, {round(loss, 4)}, {round(val_accuracy, 4)}, {round(val_loss, 4)});")
         con.commit()
         con.close()
         print("Inserted result into db")
